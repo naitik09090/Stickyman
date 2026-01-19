@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Trophy, Coins, Settings, Play, Pause, RotateCcw, Star, Zap, Shield, ArrowUp, Skull } from 'lucide-react';
+import { Trophy, Coins, Settings, Play, Pause, RotateCcw, Star, Zap, Shield, ArrowUp, Skull, Menu } from 'lucide-react';
 
 const StickmanArcherGame = () => {
     const canvasRef = useRef(null);
@@ -27,18 +27,19 @@ const StickmanArcherGame = () => {
     const [enemySelfKill, setEnemySelfKill] = useState(false); // Track enemy self-kill
 
     // Responsive canvas state
-    const [canvasWidth, setCanvasWidth] = useState(1100);
-    const [canvasHeight, setCanvasHeight] = useState(700);
+    const [canvasWidth, setCanvasWidth] = useState(1350);
+    const [canvasHeight, setCanvasHeight] = useState(600);
     const [scaleFactor, setScaleFactor] = useState(1);
     const [isMobile, setIsMobile] = useState(false);
     const [isTablet, setIsTablet] = useState(false);
+    const [showMobileMenu, setShowMobileMenu] = useState(false);
 
     const WIN_TIME_SECONDS = 300; // Win after 5 minutes (300 seconds)
     const killTimeoutRef = useRef(null); // Ref to track kill animation timeout
 
     // Base canvas dimensions (internal game coordinates)
-    const BASE_WIDTH = 1250;
-    const BASE_HEIGHT = 700;
+    const BASE_WIDTH = 1150;
+    const BASE_HEIGHT = 600;
 
     const gameState = useRef({
         player: { x: 350, y: 400, health: 3, arrowHits: [], isDead: false, deathFrame: 0, isInvulnerable: false },
@@ -97,35 +98,37 @@ const StickmanArcherGame = () => {
     useEffect(() => {
         const updateCanvasSize = () => {
             const viewportWidth = window.innerWidth;
-            let newWidth, newHeight, scale;
+            const viewportHeight = window.innerHeight;
 
-            // Determine device type and calculate canvas size
-            if (viewportWidth < 768) {
-                // Mobile
-                setIsMobile(true);
-                setIsTablet(false);
-                newWidth = Math.min(viewportWidth * 0.95, 500);
-            } else if (viewportWidth < 1024) {
-                // Tablet
-                setIsMobile(false);
-                setIsTablet(true);
-                newWidth = Math.min(viewportWidth * 0.90, 800);
-            } else {
-                // Desktop/Laptop - Use exact dimensions
-                setIsMobile(false);
-                setIsTablet(false);
-                newWidth = 1220; // Fixed width for desktop
-            }
+            // Calculate scale based on containing the game within the viewport
+            // We want to fit BASE_WIDTH x BASE_HEIGHT into viewportWidth x viewportHeight
+            const widthScale = viewportWidth / BASE_WIDTH;
+            const heightScale = viewportHeight / BASE_HEIGHT;
 
-            // Maintain 16:10 aspect ratio
-            newHeight = (newWidth / BASE_WIDTH) * BASE_HEIGHT;
-            scale = newWidth / BASE_WIDTH;
+            // Use the smaller scale to ensure it fits entirely (Contain strategy)
+            // Use 0.95 factor (95%) to leave a small margin and avoid scrollbars
+            const scale = Math.min(widthScale, heightScale) * 0.95;
+
+            const newWidth = BASE_WIDTH * scale;
+            const newHeight = BASE_HEIGHT * scale;
+
+            console.log('🎮 Responsive Canvas Update:', {
+                viewport: { width: viewportWidth, height: viewportHeight },
+                baseSize: { width: BASE_WIDTH, height: BASE_HEIGHT },
+                scales: { widthScale, heightScale, finalScale: scale },
+                newCanvasSize: { width: newWidth, height: newHeight }
+            });
+
+            // Update device type flags for UI styling (icon sizes, padding)
+            setIsMobile(viewportWidth < 768);
+            setIsTablet(viewportWidth >= 768 && viewportWidth < 1024);
 
             setCanvasWidth(newWidth);
             setCanvasHeight(newHeight);
             setScaleFactor(scale);
         };
 
+        console.log('🚀 Initializing responsive canvas...');
         updateCanvasSize();
         window.addEventListener('resize', updateCanvasSize);
 
@@ -139,7 +142,7 @@ const StickmanArcherGame = () => {
             1: { player: { x: 150, y: 500 }, enemy: { x: 900, y: 450 } },
             2: { player: { x: 200, y: 480 }, enemy: { x: 850, y: 470 } },
             3: { player: { x: 120, y: 520 }, enemy: { x: 950, y: 460 } },
-            4: { player: { x: 180, y: 490 }, enemy: { x: 880, y: 440 } },
+            4: { player: { x: 180, y: 390 }, enemy: { x: 880, y: 440 } },
 
             // Level 5-9: Two enemies (medium difficulty)
             5: {
@@ -262,12 +265,20 @@ const StickmanArcherGame = () => {
         // Update player position
         state.player.x = positions.player.x;
         state.player.y = positions.player.y;
+        state.player.isDead = false; // Make sure player is alive
+        state.player.health = 3; // Reset health
+        state.player.deathFrame = 0; // Reset death animation
+        state.player.isInvulnerable = false; // Reset invulnerability
 
         // Update enemy position and target
         state.enemy.x = positions.enemy.x;
         state.enemy.y = positions.enemy.y;
         state.enemy.targetX = positions.enemy.x;
         state.enemy.targetY = positions.enemy.y;
+        state.enemy.isDead = false; // Make sure enemy is alive
+        state.enemy.health = 3; // Reset health
+        state.enemy.deathFrame = 0; // Reset death animation
+        state.enemy.isInvulnerable = false; // Reset invulnerability
 
         // Update enemy2 position for levels 5-20 (if exists)
         if (positions.enemy2) {
@@ -286,6 +297,11 @@ const StickmanArcherGame = () => {
             state.enemy2.isDead = true; // Mark as dead so it doesn't render
         }
 
+        // Clear all arrows when level changes
+        state.arrows = [];
+        state.enemyArrows = [];
+        state.enemy2Arrows = [];
+
         // Each level has completely unique obstacle configuration
         switch (level) {
             case 1:
@@ -298,7 +314,7 @@ const StickmanArcherGame = () => {
 
             case 4:
                 // Single thin vertical wall - left side
-                state.obstacles.push({ x: 450, y: 150, w: 30, h: 200, type: 'static', color: '#696969' });
+                state.obstacles.push({ x: 500, y: 250, w: 30, h: 200, type: 'static', color: '#696969' });
                 break;
 
             case 5:
@@ -1041,7 +1057,7 @@ const StickmanArcherGame = () => {
                 // Reduced age threshold and vy threshold to catch arrows on first contact
                 if (arrow.age > 10 || (arrow.vy > 0 && arrow.age > 5)) {
                     const playerHitPoint = checkCollision(arrow, state.player);
-                    if (playerHitPoint && !state.player.isDead && !state.player.isInvulnerable && !powerUps.shield) {
+                    if (playerHitPoint && !state.player.isDead && !state.player.isInvulnerable && !powerUps.shield && !levelComplete) {
                         createParticles(arrow.x, arrow.y, '#ff0000');
 
                         // Apply damage logic - show self-kill message and popup
@@ -1099,13 +1115,13 @@ const StickmanArcherGame = () => {
                         setTotalKills(t => t + 1);
                         setCurrentLevelKills(prev => {
                             const newKills = prev + 1;
-                            // Levels 5-20 have 2 enemies, levels 1-4 have 1 enemy
-                            const requiredKills = (level >= 5 && level <= 20) ? 2 : 1;
+                            // Levels 5+ have 2 enemies, levels 1-4 have 1 enemy
+                            const requiredKills = (level >= 5) ? 2 : 1;
                             if (newKills >= requiredKills) {
                                 setLevelComplete(true);
                                 // Clear enemy arrows immediately to prevent post-kill damage
                                 state.enemyArrows = [];
-                                if (level >= 5 && level <= 20) state.enemy2Arrows = [];
+                                if (level >= 5) state.enemy2Arrows = [];
                             }
                             return newKills;
                         });
@@ -1122,8 +1138,9 @@ const StickmanArcherGame = () => {
                             state.enemy.isInvulnerable = true;
 
                             setTimeout(() => {
-                                // Don't respawn enemy if level is complete OR if it's Level 1 (two enemies)
-                                if (!levelComplete && level !== 1) {
+                                // Don't respawn enemy if level is complete OR if it's a multi-enemy level
+                                const positions = getPositionsForLevel(level);
+                                if (!levelComplete && !positions.enemy2) {
                                     state.enemy.isDead = false;
                                     state.enemy.health = 3;
                                     state.enemy.arrowHits = [];
@@ -1151,13 +1168,13 @@ const StickmanArcherGame = () => {
                         setTotalKills(t => t + 1);
                         setCurrentLevelKills(prev => {
                             const newKills = prev + 1;
-                            // Levels 5-20 have 2 enemies, levels 1-4 have 1 enemy
-                            const requiredKills = (level >= 5 && level <= 20) ? 2 : 1;
+                            // Levels 5+ have 2 enemies, levels 1-4 have 1 enemy
+                            const requiredKills = (level >= 5) ? 2 : 1;
                             if (newKills >= requiredKills) {
                                 setLevelComplete(true);
                                 // Clear enemy arrows immediately to prevent post-kill damage
                                 state.enemyArrows = [];
-                                if (level >= 5 && level <= 20) state.enemy2Arrows = [];
+                                if (level >= 5) state.enemy2Arrows = [];
                             }
                             return newKills;
                         });
@@ -1173,8 +1190,9 @@ const StickmanArcherGame = () => {
                             state.enemy.deathFrame = 0;
 
                             setTimeout(() => {
-                                // Don't respawn enemy if level is complete OR if it's Level 1 (two enemies)
-                                if (!levelComplete && level !== 1) {
+                                // Don't respawn enemy if level is complete OR if it's a multi-enemy level
+                                const positions = getPositionsForLevel(level);
+                                if (!levelComplete && !positions.enemy2) {
                                     state.enemy.isDead = false;
                                     state.enemy.health = 3;
                                     state.enemy.arrowHits = [];
@@ -1211,13 +1229,13 @@ const StickmanArcherGame = () => {
                             setTotalKills(t => t + 1);
                             setCurrentLevelKills(prev => {
                                 const newKills = prev + 1;
-                                // Levels 5-20 have 2 enemies, levels 1-4 have 1 enemy
-                                const requiredKills = (level >= 5 && level <= 20) ? 2 : 1;
+                                // Levels 5+ have 2 enemies, levels 1-4 have 1 enemy
+                                const requiredKills = (level >= 5) ? 2 : 1;
                                 if (newKills >= requiredKills) {
                                     setLevelComplete(true);
                                     // Clear all enemy arrows
                                     state.enemyArrows = [];
-                                    if (level >= 5 && level <= 20) state.enemy2Arrows = [];
+                                    if (level >= 5) state.enemy2Arrows = [];
                                 }
                                 return newKills;
                             });
@@ -1242,13 +1260,13 @@ const StickmanArcherGame = () => {
                             setTotalKills(t => t + 1);
                             setCurrentLevelKills(prev => {
                                 const newKills = prev + 1;
-                                // Levels 5-20 have 2 enemies, levels 1-4 have 1 enemy
-                                const requiredKills = (level >= 5 && level <= 20) ? 2 : 1;
+                                // Levels 5+ have 2 enemies, levels 1-4 have 1 enemy
+                                const requiredKills = (level >= 5) ? 2 : 1;
                                 if (newKills >= requiredKills) {
                                     setLevelComplete(true);
                                     // Clear all enemy arrows
                                     state.enemyArrows = [];
-                                    if (level >= 5 && level <= 20) state.enemy2Arrows = [];
+                                    if (level >= 5) state.enemy2Arrows = [];
                                 }
                                 return newKills;
                             });
@@ -1298,8 +1316,9 @@ const StickmanArcherGame = () => {
 
                 if (obstacleHit) return false; // Remove arrow
 
-                // Check Friendly Fire (Enemy Self Damage)
-                if (arrow.age > 20 || arrow.vy > 2) {
+                // Check Friendly Fire (Enemy Self Damage) - DISABLED
+                // Enemies can no longer kill themselves
+                /* if (arrow.age > 20 || arrow.vy > 2) {
                     const enemyHitPoint = checkCollision(arrow, state.enemy);
                     // 99% chance enemy dodges their own arrow, only 1% chance it hits
                     const dodgesArrow = Math.random() < 0.99; // 99% dodge chance
@@ -1349,7 +1368,7 @@ const StickmanArcherGame = () => {
 
                         return false;
                     }
-                }
+                } */
 
                 const hitPoint = checkCollision(arrow, state.player);
                 // Don't process damage if level is already complete - player is invulnerable
@@ -1418,8 +1437,9 @@ const StickmanArcherGame = () => {
 
                     if (obstacleHit) return false;
 
-                    // Check Enemy2 Self Damage
-                    if (arrow.age > 20 || arrow.vy > 2) {
+                    // Check Enemy2 Self Damage - DISABLED
+                    // Enemies can no longer kill themselves
+                    /* if (arrow.age > 20 || arrow.vy > 2) {
                         const enemy2HitPoint = checkCollision(arrow, state.enemy2);
                         const dodgesArrow = Math.random() < 0.99;
 
@@ -1462,7 +1482,7 @@ const StickmanArcherGame = () => {
 
                             return false;
                         }
-                    }
+                    } */
 
                     // Check collision with player
                     const hitPoint = checkCollision(arrow, state.player);
@@ -1509,12 +1529,40 @@ const StickmanArcherGame = () => {
                 const dx = state.enemy.targetX - state.enemy.x;
                 const dy = state.enemy.targetY - state.enemy.y;
 
-                // Only move if distance is significant (avoid jittering)
+                // Calculate potential new position
+                let newEnemyX = state.enemy.x;
+                let newEnemyY = state.enemy.y;
+
                 if (Math.abs(dx) > 0.5) {
-                    state.enemy.x += dx * moveSpeed;
+                    newEnemyX += dx * moveSpeed;
                 }
                 if (Math.abs(dy) > 0.5) {
-                    state.enemy.y += dy * moveSpeed;
+                    newEnemyY += dy * moveSpeed;
+                }
+
+                // Check obstacle collision for enemy
+                const enemyW = 35;
+                const enemyH = 65;
+                const newEnemyLeft = newEnemyX - enemyW / 2;
+                const newEnemyRight = newEnemyX + enemyW / 2;
+                const newEnemyTop = newEnemyY - enemyH;
+                const newEnemyBottom = newEnemyY;
+
+                let enemyWouldCollide = false;
+                for (let obs of state.obstacles) {
+                    if (newEnemyRight > obs.x &&
+                        newEnemyLeft < obs.x + obs.w &&
+                        newEnemyBottom > obs.y &&
+                        newEnemyTop < obs.y + obs.h) {
+                        enemyWouldCollide = true;
+                        break;
+                    }
+                }
+
+                // Only apply movement if no collision
+                if (!enemyWouldCollide) {
+                    state.enemy.x = newEnemyX;
+                    state.enemy.y = newEnemyY;
                 }
 
                 state.enemyShootTimer++;
@@ -1531,7 +1579,17 @@ const StickmanArcherGame = () => {
                     state.enemyChargeTime = state.enemyShootTimer - (shootDelay - chargeFrames);
 
                     // Calculate angle during charge (will be used when shooting)
-                    const makesMistake = Math.random() < 0.1; // 10% chance
+                    // Difficulty affects enemy accuracy
+                    let missRate;
+                    if (difficulty === 'easy') {
+                        missRate = 0.60; // 60% miss = 40% hit
+                    } else if (difficulty === 'medium') {
+                        missRate = 0.50; // 50% miss = 50% hit
+                    } else { // hard
+                        missRate = 0.10; // 10% miss = 90% hit
+                    }
+
+                    const makesMistake = Math.random() < missRate;
                     if (makesMistake) {
                         state.enemyAngle = -(60 + Math.random() * 60); // Upward mistake (Negative Y)
                     } else {
@@ -1580,11 +1638,40 @@ const StickmanArcherGame = () => {
                 const dx = state.enemy2.targetX - state.enemy2.x;
                 const dy = state.enemy2.targetY - state.enemy2.y;
 
+                // Calculate potential new position
+                let newEnemy2X = state.enemy2.x;
+                let newEnemy2Y = state.enemy2.y;
+
                 if (Math.abs(dx) > 0.5) {
-                    state.enemy2.x += dx * moveSpeed;
+                    newEnemy2X += dx * moveSpeed;
                 }
                 if (Math.abs(dy) > 0.5) {
-                    state.enemy2.y += dy * moveSpeed;
+                    newEnemy2Y += dy * moveSpeed;
+                }
+
+                // Check obstacle collision for enemy2
+                const enemy2W = 35;
+                const enemy2H = 65;
+                const newEnemy2Left = newEnemy2X - enemy2W / 2;
+                const newEnemy2Right = newEnemy2X + enemy2W / 2;
+                const newEnemy2Top = newEnemy2Y - enemy2H;
+                const newEnemy2Bottom = newEnemy2Y;
+
+                let enemy2WouldCollide = false;
+                for (let obs of state.obstacles) {
+                    if (newEnemy2Right > obs.x &&
+                        newEnemy2Left < obs.x + obs.w &&
+                        newEnemy2Bottom > obs.y &&
+                        newEnemy2Top < obs.y + obs.h) {
+                        enemy2WouldCollide = true;
+                        break;
+                    }
+                }
+
+                // Only apply movement if no collision
+                if (!enemy2WouldCollide) {
+                    state.enemy2.x = newEnemy2X;
+                    state.enemy2.y = newEnemy2Y;
                 }
 
                 state.enemy2ShootTimer++;
@@ -1599,7 +1686,17 @@ const StickmanArcherGame = () => {
                     state.enemy2ChargeTime = state.enemy2ShootTimer - (shootDelay - chargeFrames);
 
                     // Calculate angle during charge
-                    const makesMistake = Math.random() < 0.1; // 10% chance
+                    // Difficulty affects enemy accuracy
+                    let missRate;
+                    if (difficulty === 'easy') {
+                        missRate = 0.60; // 60% miss = 40% hit
+                    } else if (difficulty === 'medium') {
+                        missRate = 0.50; // 50% miss = 50% hit
+                    } else { // hard
+                        missRate = 0.10; // 10% miss = 90% hit
+                    }
+
+                    const makesMistake = Math.random() < missRate;
                     if (makesMistake) {
                         state.enemy2Angle = -(60 + Math.random() * 60); // Upward mistake
                     } else {
@@ -1721,10 +1818,45 @@ const StickmanArcherGame = () => {
             state.autoMoveTimer += 0.05;
 
             // Handle Player Movement (Manual Only)
-            if (state.keys.left) state.player.x -= 3;
-            if (state.keys.right) state.player.x += 3;
-            if (state.keys.up) state.player.y -= 3;
-            if (state.keys.down) state.player.y += 3;
+            const speed = 3;
+            let newX = state.player.x;
+            let newY = state.player.y;
+
+            if (state.keys.left) newX -= speed;
+            if (state.keys.right) newX += speed;
+            if (state.keys.up) newY -= speed;
+            if (state.keys.down) newY += speed;
+
+            // Check Player-Obstacle Collision
+            // Player position (x, y) is at bottom-center of character
+            // Character extends upward ~60px and is ~30px wide (centered)
+            const playerW = 35; // Slightly larger to prevent visual overlap
+            const playerH = 65; // Slightly larger to prevent visual overlap
+
+            // Calculate NEW position bounding box
+            const newPlayerLeft = newX - playerW / 2;
+            const newPlayerRight = newX + playerW / 2;
+            const newPlayerTop = newY - playerH;
+            const newPlayerBottom = newY;
+
+            // Check if new position collides with ANY obstacle
+            let wouldCollide = false;
+            for (let obs of state.obstacles) {
+                // AABB collision check
+                if (newPlayerRight > obs.x &&
+                    newPlayerLeft < obs.x + obs.w &&
+                    newPlayerBottom > obs.y &&
+                    newPlayerTop < obs.y + obs.h) {
+                    wouldCollide = true;
+                    break;
+                }
+            }
+
+            // Only apply movement if it doesn't cause a collision
+            if (!wouldCollide) {
+                state.player.x = newX;
+                state.player.y = newY;
+            }
 
             // Handle Enemy Movement (AI - "Anime" Style)
             // Starts easy (Level 1) and gets erratic/fast (Level 10)
@@ -1832,17 +1964,31 @@ const StickmanArcherGame = () => {
         };
 
         const handleKeyDown = (e) => {
-            if (e.key === 'ArrowLeft') gameState.current.keys.left = true;
-            if (e.key === 'ArrowRight') gameState.current.keys.right = true;
-            if (e.key === 'ArrowUp') gameState.current.keys.up = true;
-            if (e.key === 'ArrowDown') gameState.current.keys.down = true;
+            const key = e.key.toLowerCase();
+            if (key === 'arrowleft' || key === 'a') {
+                gameState.current.keys.left = false;
+                // e.preventDefault();
+            }
+            if (key === 'arrowright' || key === 'd') {
+                gameState.current.keys.right = false;
+                // e.preventDefault();
+            }
+            if (key === 'arrowup' || key === 'w') {
+                gameState.current.keys.up = false;
+                e.preventDefault(); // Prevent scrolling
+            }
+            if (key === 'arrowdown' || key === 's') {
+                gameState.current.keys.down = false;
+                e.preventDefault(); // Prevent scrolling
+            }
         };
 
         const handleKeyUp = (e) => {
-            if (e.key === 'ArrowLeft') gameState.current.keys.left = false;
-            if (e.key === 'ArrowRight') gameState.current.keys.right = false;
-            if (e.key === 'ArrowUp') gameState.current.keys.up = false;
-            if (e.key === 'ArrowDown') gameState.current.keys.down = false;
+            const key = e.key.toLowerCase();
+            if (key === 'arrowleft' || key === 'a') gameState.current.keys.left = false;
+            if (key === 'arrowright' || key === 'd') gameState.current.keys.right = false;
+            if (key === 'arrowup' || key === 'w') gameState.current.keys.up = false;
+            if (key === 'arrowdown' || key === 's') gameState.current.keys.down = false;
         };
 
         window.addEventListener('keydown', handleKeyDown);
@@ -1916,15 +2062,31 @@ const StickmanArcherGame = () => {
                 targetX: levelPositions.enemy.x,
                 targetY: levelPositions.enemy.y
             },
+            enemy2: {
+                x: levelPositions.enemy2 ? levelPositions.enemy2.x : -1000,
+                y: levelPositions.enemy2 ? levelPositions.enemy2.y : -1000,
+                health: 3,
+                arrowHits: [],
+                isDead: !levelPositions.enemy2,
+                deathFrame: 0,
+                isInvulnerable: false,
+                targetX: levelPositions.enemy2 ? levelPositions.enemy2.x : -1000,
+                targetY: levelPositions.enemy2 ? levelPositions.enemy2.y : -1000
+            },
             arrows: [],
             enemyArrows: [],
+            enemy2Arrows: [],
             isCharging: false,
             chargeTime: 0,
             angle: -45,
             enemyAngle: -135, // Default facing Left-Up
+            enemy2Angle: -135,
             enemyIsCharging: false,
             enemyChargeTime: 0,
             enemyShootTimer: 0,
+            enemy2IsCharging: false,
+            enemy2ChargeTime: 0,
+            enemy2ShootTimer: 0,
             particles: [],
             ammo: 10,
             maxAmmo: 10,
@@ -1950,7 +2112,18 @@ const StickmanArcherGame = () => {
     //     }
     // };
 
+    const [startLevelKills, setStartLevelKills] = useState(0); // Track kills at start of level for replay
+    const [startLevelScore, setStartLevelScore] = useState(0); // Track score at start of level for replay
+
+    // Initialize startLevelKills and startLevelScore on mount
+    useEffect(() => {
+        setStartLevelKills(totalKills);
+        setStartLevelScore(score);
+    }, []);
+
     const handleNextLevel = () => {
+        setStartLevelKills(totalKills); // Save current kills as checkpoint for next level
+        setStartLevelScore(score); // Save current score as checkpoint for next level
         setLevel(prev => prev + 1);
         setCurrentLevelKills(0);
         setLevelComplete(false);
@@ -1958,6 +2131,8 @@ const StickmanArcherGame = () => {
     };
 
     const handleReplayLevel = () => {
+        setTotalKills(startLevelKills); // Reset total kills to what they were at start of level
+        setScore(startLevelScore); // Reset score to what it was at start of level
         setCurrentLevelKills(0);
         setLevelComplete(false);
         resetLevelState();
@@ -1990,6 +2165,23 @@ const StickmanArcherGame = () => {
         state.enemy.targetX = positions.enemy.x;
         state.enemy.targetY = positions.enemy.y;
 
+        // Reset enemy2 (if exists for this level)
+        if (positions.enemy2) {
+            state.enemy2.x = positions.enemy2.x;
+            state.enemy2.y = positions.enemy2.y;
+            state.enemy2.targetX = positions.enemy2.x;
+            state.enemy2.targetY = positions.enemy2.y;
+            state.enemy2.isDead = false;
+            state.enemy2.health = 3;
+            state.enemy2.deathFrame = 0;
+            state.enemy2.isInvulnerable = false;
+        } else {
+            state.enemy2.x = -1000;
+            state.enemy2.y = -1000;
+            state.enemy2.isDead = true;
+        }
+        state.enemy2Arrows = []; // Clear enemy2 arrows
+
         setGameOver(false);
         setPlayerSelfKill(false);
         setEnemySelfKill(false);
@@ -2000,52 +2192,126 @@ const StickmanArcherGame = () => {
 
     return (
         <>
-            <div className={`flex flex-col items-center justify-center ${isMobile ? 'p-2' : isTablet ? 'p-4' : 'p-5'}`}
+            <div className={`w-full h-full flex flex-col items-center justify-center ${isMobile ? 'p-2' : isTablet ? 'p-4' : 'p-5'}`}
                 style={{
                     borderRadius: isMobile ? '12px' : '20px',
                     overflowX: 'hidden',
                     boxSizing: 'border-box'
                 }}>
-                <style>{`
-                @keyframes pulse {
-                    0%, 100% { transform: scale(1); }
-                    50% { transform: scale(1.05); }
-                }
-                .pulse-animation {
-                    animation: pulse 1s infinite;
-                }
-            `}</style>
 
                 {/* Game Canvas Container */}
-                <div className="relative" style={{ margin: '0 auto', display: 'block' }}>
+                <div className="relative" style={{
+                    width: `${canvasWidth}px`,
+                    height: `${canvasHeight}px`,
+                    display: 'block'
+                }}>
                     <canvas
                         ref={canvasRef}
                         width={BASE_WIDTH}
                         height={BASE_HEIGHT}
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'contain',
+                            display: 'block'
+                        }}
                         className="rounded-3xl cursor-crosshair bg-sky-200"
                     />
-                    {/* Control Buttons Below Canvas */}
-                    <div className="flex justify-between absolute bottom-2">
-                        <button
-                            onClick={() => setShowSettings(!showSettings)}
-                            className="bg-white rounded-full hover:bg-gray-100 transition"
-                            style={{ padding: isMobile ? "12px" : "10px" }}
-                        >
-                            <Settings className={`text-black ${isMobile ? 'w-7 h-7' : 'w-6 h-6'}`} />
-                        </button>
+                    {/* Control Buttons - Responsive Design */}
+                    {isMobile ? (
+                        /* Mobile: Dropdown Menu */
+                        <div className="absolute top-4 right-4 z-50">
+                            <button
+                                onClick={() => setShowMobileMenu(!showMobileMenu)}
+                                className="bg-white rounded-full hover:bg-gray-100 transition shadow-lg"
+                                style={{ padding: "10px" }}
+                            >
+                                <Menu className="text-black w-6 h-6" />
+                            </button>
 
-                        <button
-                            onClick={() => setIsPaused(!isPaused)}
-                            className="bg-white rounded-full hover:bg-gray-100 transition"
-                            style={{ padding: isMobile ? "12px" : "10px" }}
-                        >
-                            {isPaused ? (
-                                <Play className={`text-black ${isMobile ? 'w-7 h-7' : 'w-6 h-6'}`} />
-                            ) : (
-                                <Pause className={`text-black ${isMobile ? 'w-7 h-7' : 'w-6 h-6'}`} />
+                            {/* Dropdown Menu */}
+                            {showMobileMenu && (
+                                <div
+                                    className="absolute top-14 right-0 bg-white rounded-2xl shadow-2xl overflow-hidden"
+                                    style={{
+                                        minWidth: '180px',
+                                        animation: 'slideDown 0.2s ease-out'
+                                    }}
+                                >
+                                    <style>{`
+                                        @keyframes slideDown {
+                                            from {
+                                                opacity: 0;
+                                                transform: translateY(-10px);
+                                            }
+                                            to {
+                                                opacity: 1;
+                                                transform: translateY(0);
+                                            }
+                                        }
+                                    `}</style>
+
+                                    <button
+                                        onClick={() => {
+                                            setShowSettings(!showSettings);
+                                            setShowMobileMenu(false);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-100 transition border-b border-gray-200"
+                                    >
+                                        <Settings className="text-gray-700 w-5 h-5" />
+                                        <span className="text-gray-800 font-medium">Settings</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => {
+                                            setIsPaused(!isPaused);
+                                            setShowMobileMenu(false);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-100 transition"
+                                    >
+                                        {isPaused ? (
+                                            <>
+                                                <Play className="text-green-600 w-5 h-5" />
+                                                <span className="text-gray-800 font-medium">Resume</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Pause className="text-orange-600 w-5 h-5" />
+                                                <span className="text-gray-800 font-medium">Pause</span>
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
                             )}
-                        </button>
-                    </div>
+                        </div>
+                    ) : (
+                        /* Tablet & Desktop: Traditional Corner Buttons */
+                        <>
+                            {/* Settings Button - Top Left */}
+                            <div className="absolute top-4 left-4 z-50">
+                                <button
+                                    onClick={() => setShowSettings(!showSettings)}
+                                    className={`bg-white rounded-full hover:bg-gray-100 transition shadow-lg${isMobile ? 'w-8 h-8' : isTablet ? 'w-10 h-10' : 'w-15 h-15 p-3'}`}
+                                >
+                                    <Settings className={`text-black ${isTablet ? 'w-6 h-6' : 'w-8 h-8'}`} />
+                                </button>
+                            </div>
+
+                            {/* Pause Button - Top Right */}
+                            <div className="absolute top-4 right-4 z-50">
+                                <button
+                                    onClick={() => setIsPaused(!isPaused)}
+                                    className={`bg-white rounded-full hover:bg-gray-100 transition shadow-lg${isMobile ? 'w-8 h-8' : isTablet ? 'w-10 h-10' : 'w-15 h-15 p-3'}`}
+                                >
+                                    {isPaused ? (
+                                        <Play className={`text-black ${isTablet ? 'w-6 h-6' : 'w-8 h-8'}`} />
+                                    ) : (
+                                        <Pause className={`text-black ${isTablet ? 'w-6 h-6' : 'w-8 h-8'}`} />
+                                    )}
+                                </button>
+                            </div>
+                        </>
+                    )}
 
                     {/* HUD - Premium Glassmorphic Design */}
                     <div className={`absolute ${isMobile ? 'top-2' : 'top-6'} left-0 right-0 flex justify-center z-20 pointer-events-none px-2`}>
