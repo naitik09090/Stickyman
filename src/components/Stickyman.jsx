@@ -709,7 +709,6 @@ const StickmanArcherGame = () => {
                     ⚠️ If hit by enemy arrows, you'll respawn at a new position!<br />
                     💰 Body shots: +1 point & +5 coins | 🎯 Headshots: +2 points & +10 coins<br />
                     💀 Arrow sticks where it hits: Head (20%), Chest, Stomach, or Leg<br />
-                    🎮 Keep playing to improve your score!
                 </p>
             </div>
         </div>
