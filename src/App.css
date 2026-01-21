@@ -1,4 +1,4 @@
-/* Responsive Root Container - Full Viewport */
+/* Fullscreen Root Container - No Padding */
 #root {
   width: 100%;
   height: 100vh;
@@ -10,25 +10,7 @@
   align-items: center;
   text-align: center;
   overflow: hidden;
-}
-
-/* Responsive padding for different screen sizes */
-@media (min-width: 1024px) {
-  #root {
-    padding: 1rem;
-  }
-}
-
-@media (min-width: 768px) and (max-width: 1023px) {
-  #root {
-    padding: 0.5rem;
-  }
-}
-
-@media (max-width: 767px) {
-  #root {
-    padding: 0.25rem;
-  }
+  border-radius: 20px;
 }
 
 .logo {

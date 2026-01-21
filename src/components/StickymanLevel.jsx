@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Trophy, Coins, Settings, Play, Pause, RotateCcw, Star, Zap, Shield, ArrowUp, Skull, Menu } from 'lucide-react';
+import { Trophy, Coins, Settings, Play, Pause, RotateCcw, Star, Zap, Shield, ArrowUp, Skull, Menu, X } from 'lucide-react';
 
 const StickmanArcherGame = () => {
     const canvasRef = useRef(null);
@@ -27,18 +27,22 @@ const StickmanArcherGame = () => {
     const [enemySelfKill, setEnemySelfKill] = useState(false); // Track enemy self-kill
 
     // Responsive canvas state
-    const [canvasWidth, setCanvasWidth] = useState(1350);
+    const [canvasWidth, setCanvasWidth] = useState(1250);
     const [canvasHeight, setCanvasHeight] = useState(600);
     const [scaleFactor, setScaleFactor] = useState(1);
     const [isMobile, setIsMobile] = useState(false);
     const [isTablet, setIsTablet] = useState(false);
     const [showMobileMenu, setShowMobileMenu] = useState(false);
 
+    const [startLevelKills, setStartLevelKills] = useState(0); // Track kills at start of level for replay
+    const [startLevelScore, setStartLevelScore] = useState(0); // Track score at start of level for replay
+
+
     const WIN_TIME_SECONDS = 300; // Win after 5 minutes (300 seconds)
     const killTimeoutRef = useRef(null); // Ref to track kill animation timeout
 
     // Base canvas dimensions (internal game coordinates)
-    const BASE_WIDTH = 1150;
+    const BASE_WIDTH = 1250;
     const BASE_HEIGHT = 600;
 
     const gameState = useRef({
@@ -107,7 +111,7 @@ const StickmanArcherGame = () => {
 
             // Use the smaller scale to ensure it fits entirely (Contain strategy)
             // Use 0.95 factor (95%) to leave a small margin and avoid scrollbars
-            const scale = Math.min(widthScale, heightScale) * 0.95;
+            const scale = Math.min(widthScale, heightScale) * 1;
 
             const newWidth = BASE_WIDTH * scale;
             const newHeight = BASE_HEIGHT * scale;
@@ -139,8 +143,8 @@ const StickmanArcherGame = () => {
     const getPositionsForLevel = (currentLevel) => {
         const levelPositions = {
             // Level 1-4: Single enemy (tutorial/easy)
-            1: { player: { x: 150, y: 500 }, enemy: { x: 900, y: 450 } },
-            2: { player: { x: 200, y: 480 }, enemy: { x: 850, y: 470 } },
+            1: { player: { x: 300, y: 350 }, enemy: { x: 900, y: 350 } },
+            2: { player: { x: 250, y: 400 }, enemy: { x: 800, y: 250 } },
             3: { player: { x: 120, y: 520 }, enemy: { x: 950, y: 460 } },
             4: { player: { x: 180, y: 390 }, enemy: { x: 880, y: 440 } },
 
@@ -241,11 +245,11 @@ const StickmanArcherGame = () => {
                 },
                 enemy: {
                     x: 850 + (variation * 20),
-                    y: 250 + (variation * 15)
+                    y: 350 + (variation * 15)
                 },
                 enemy2: {
                     x: 600 + (variation * 20),
-                    y: 200 + (variation * 15)
+                    y: 250 + (variation * 15)
                 }
             };
         }
@@ -455,7 +459,7 @@ const StickmanArcherGame = () => {
                 const newTime = prev + 1;
                 // Check win condition - trigger at 300s and every 60s after that
                 // This allows the win popup to reappear periodically
-                if (newTime >= WIN_TIME_SECONDS && newTime % 60 === 0 && !gameWon) {
+                if (newTime >= WIN_TIME_SECONDS && newTime % 120 === 0 && !gameWon) {
                     setGameWon(true);
                 }
                 return newTime;
@@ -524,12 +528,21 @@ const StickmanArcherGame = () => {
             ctx.strokeStyle = isEnemy ? '#000' : '#000';
             ctx.lineWidth = 3;
 
+            ctx.save();
+            ctx.translate(x, y);
+
+            // Removed flipping logic - restricted to forward shooting only
+
+            // Adjust x, y globally to (0, 0) locally for translated context
+            const lx = 0;
+            const ly = 0;
+
             if (isDead) {
                 const progress = Math.min(deathFrame / 30, 1);
                 const rotation = progress * Math.PI / 2;
 
                 ctx.save();
-                ctx.translate(x, y - 30);
+                ctx.translate(lx, ly - 30);
                 ctx.rotate(rotation);
 
                 ctx.beginPath();
@@ -577,109 +590,96 @@ const StickmanArcherGame = () => {
                 ctx.stroke();
 
                 ctx.restore();
-                // ctx.fillStyle = '#000';
-                // ctx.fillRect(x - 20, y + 10, 40, 5);
             } else {
+                // Head
                 ctx.beginPath();
-                ctx.arc(x, y - 50, 10, 0, Math.PI * 2);
+                ctx.arc(lx, ly - 50, 10, 0, Math.PI * 2);
                 ctx.stroke();
 
+                // Eyes
                 ctx.fillStyle = isEnemy ? '#ff0000' : '#000000';
                 ctx.beginPath();
-                ctx.arc(x - 3, y - 52, 1.5, 0, Math.PI * 2);
+                ctx.arc(lx - 3, ly - 52, 1.5, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.beginPath();
-                ctx.arc(x + 3, y - 52, 1.5, 0, Math.PI * 2);
+                ctx.arc(lx + 3, ly - 52, 1.5, 0, Math.PI * 2);
                 ctx.fill();
 
+                // Smile
                 ctx.strokeStyle = isEnemy ? '#000' : '#000';
                 ctx.lineWidth = 1.5;
                 ctx.beginPath();
-                ctx.arc(x, y - 48, 4, 0.2, Math.PI - 0.2);
+                ctx.arc(lx, ly - 48, 4, 0.2, Math.PI - 0.2);
                 ctx.stroke();
 
                 ctx.lineWidth = 3;
 
+                // Body
                 ctx.beginPath();
-                ctx.moveTo(x, y - 40);
-                ctx.lineTo(x, y - 10);
+                ctx.moveTo(lx, ly - 40);
+                ctx.lineTo(lx, ly - 10);
                 ctx.stroke();
 
                 if (isCharging && !isEnemy) {
-                    const pullAngle = (angle * Math.PI) / 180;
-                    const bowArmX = x + Math.cos(pullAngle) * 15;
-                    const bowArmY = y - 30 + Math.sin(pullAngle) * 15;
+                    // Arms always aim forward
+                    let armAngle = (angle * Math.PI) / 180;
+
+                    const bowArmX = lx + Math.cos(armAngle) * 15;
+                    const bowArmY = ly - 30 + Math.sin(armAngle) * 15;
 
                     ctx.beginPath();
-                    ctx.moveTo(x, y - 30);
+                    ctx.moveTo(lx, ly - 30);
                     ctx.lineTo(bowArmX, bowArmY);
                     ctx.stroke();
 
                     ctx.beginPath();
-                    ctx.moveTo(x, y - 30);
-                    ctx.lineTo(x + 10, y - 35);
+                    ctx.moveTo(lx, ly - 30);
+                    ctx.lineTo(lx + 10, ly - 35);
                     ctx.stroke();
-
-
-                    // Hand drawing moved to drawBow to fix Z-order and duplicate issues
-                    // drawAnimeHand(bowArmX, bowArmY, pullAngle);
-                    // drawAnimeHand(x + 10, y - 35, pullAngle - Math.PI / 4);
                 } else if (isEnemy) {
                     ctx.beginPath();
-                    ctx.moveTo(x, y - 30);
-                    ctx.lineTo(x - 15, y - 20);
+                    ctx.moveTo(lx, ly - 30);
+                    ctx.lineTo(lx - 15, ly - 20);
                     ctx.stroke();
                     ctx.beginPath();
-                    ctx.moveTo(x, y - 30);
-                    ctx.lineTo(x - 10, y - 35);
-                    ctx.stroke();
-
-                    // Draw simple arms for enemy to prevent artifacts
-                    // drawAnimeHand(x - 15, y - 20, Math.PI);
-                    // drawAnimeHand(x - 10, y - 35, Math.PI + Math.PI / 4);
-
-                    ctx.beginPath();
-                    ctx.moveTo(x, y - 30);
-                    ctx.lineTo(x - 15, y - 20);
-                    ctx.stroke();
-
-                    ctx.beginPath();
-                    ctx.moveTo(x, y - 30);
-                    ctx.lineTo(x - 10, y - 35);
+                    ctx.moveTo(lx, ly - 30);
+                    ctx.lineTo(lx - 10, ly - 35);
                     ctx.stroke();
                 } else {
                     ctx.beginPath();
-                    ctx.moveTo(x, y - 30);
-                    ctx.lineTo(x + 15, y - 20);
+                    ctx.moveTo(lx, ly - 30);
+                    ctx.lineTo(lx + 15, ly - 20);
                     ctx.stroke();
                     ctx.beginPath();
-                    ctx.moveTo(x, y - 30);
-                    ctx.lineTo(x + 10, y - 35);
+                    ctx.moveTo(lx, ly - 30);
+                    ctx.lineTo(lx + 10, ly - 35);
                     ctx.stroke();
 
                     // Draw anime hands with fingers
-                    drawAnimeHand(x + 15, y - 20, 0);
-                    drawAnimeHand(x + 10, y - 35, -Math.PI / 4);
+                    drawAnimeHand(lx + 15, ly - 20, 0);
+                    drawAnimeHand(lx + 10, ly - 35, -Math.PI / 4);
                 }
 
+                // Legs
                 ctx.beginPath();
-                ctx.moveTo(x, y - 10);
-                ctx.lineTo(x - 10, y + 10);
+                ctx.moveTo(lx, ly - 10);
+                ctx.lineTo(lx - 10, ly + 10);
                 ctx.stroke();
                 ctx.beginPath();
-                ctx.moveTo(x, y - 10);
-                ctx.lineTo(x + 10, y + 10);
+                ctx.moveTo(lx, ly - 10);
+                ctx.lineTo(lx + 10, ly + 10);
                 ctx.stroke();
 
+                // Ground Shadow/Feet indicator
                 ctx.fillStyle = isEnemy ? '#000' : '#000';
-                ctx.fillRect(x - 20, y + 10, 40, 5);
+                ctx.fillRect(lx - 20, ly + 10, 40, 5);
 
+                // Health Hearts
                 for (let i = 0; i < 3; i++) {
-                    // Only draw active red hearts to prevent "gray dot" artifacts
                     if (i >= health) continue;
 
-                    const heartX = x - 20 + i * 20;
-                    const heartY = y - 80;
+                    const heartX = lx - 20 + i * 20;
+                    const heartY = ly - 80;
                     ctx.fillStyle = '#ff0000';
                     ctx.beginPath();
                     ctx.arc(heartX - 3, heartY, 4, 0, Math.PI * 2);
@@ -692,6 +692,7 @@ const StickmanArcherGame = () => {
                     ctx.fill();
                 }
             }
+            ctx.restore();
         };
 
         const drawBow = (x, y, angle, isCharging, chargeTime, isEnemy = false) => {
@@ -998,6 +999,11 @@ const StickmanArcherGame = () => {
         const gameLoop = () => {
             if (isPaused || gameOver || gameWon) return;
 
+            // Update bow charging
+            if (gameState.current.isCharging) {
+                gameState.current.chargeTime = Math.min(gameState.current.chargeTime + 0.5, 30);
+            }
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // Reset context to prevent stray artifacts
@@ -1294,7 +1300,7 @@ const StickmanArcherGame = () => {
                 arrow.vx *= 0.99; // Slight air resistance
                 arrow.x += arrow.vx;
                 arrow.y += arrow.vy;
-                arrow.vy += 0.25; // Slightly reduced gravity for smoother arc
+                arrow.vy += 0.15; // LOWER GRAVITY (0.25 -> 0.15) for slower, floatier arrows
 
                 // Friendly Fire
                 if (arrow.age !== undefined) arrow.age++;
@@ -1316,12 +1322,12 @@ const StickmanArcherGame = () => {
 
                 if (obstacleHit) return false; // Remove arrow
 
-                // Check Friendly Fire (Enemy Self Damage) - DISABLED
-                // Enemies can no longer kill themselves
-                /* if (arrow.age > 20 || arrow.vy > 2) {
+                // Check Friendly Fire (Enemy Self Damage) - ENABLED
+                // Enemies can kill themselves with their own arrows
+                if (arrow.age > 10 || arrow.vy > 0) {
                     const enemyHitPoint = checkCollision(arrow, state.enemy);
-                    // 99% chance enemy dodges their own arrow, only 1% chance it hits
-                    const dodgesArrow = Math.random() < 0.99; // 99% dodge chance
+                    // 90% dodge chance, 10% self-kill chance
+                    const dodgesArrow = Math.random() < 0.90;
 
                     if (enemyHitPoint && !state.enemy.isDead && !state.enemy.isInvulnerable && !dodgesArrow) {
                         createParticles(arrow.x, arrow.y, '#ff0000');
@@ -1368,7 +1374,8 @@ const StickmanArcherGame = () => {
 
                         return false;
                     }
-                } */
+                }
+
 
                 const hitPoint = checkCollision(arrow, state.player);
                 // Don't process damage if level is already complete - player is invulnerable
@@ -1437,11 +1444,12 @@ const StickmanArcherGame = () => {
 
                     if (obstacleHit) return false;
 
-                    // Check Enemy2 Self Damage - DISABLED
-                    // Enemies can no longer kill themselves
-                    /* if (arrow.age > 20 || arrow.vy > 2) {
+                    // Check Enemy2 Self Damage - ENABLED
+                    // Enemies can kill themselves with their own arrows
+                    if (arrow.age > 10 || arrow.vy > 0) {
                         const enemy2HitPoint = checkCollision(arrow, state.enemy2);
-                        const dodgesArrow = Math.random() < 0.99;
+                        // 90% dodge chance, 10% self-kill chance
+                        const dodgesArrow = Math.random() < 0.90;
 
                         if (enemy2HitPoint && !state.enemy2.isDead && !state.enemy2.isInvulnerable && !dodgesArrow) {
                             createParticles(arrow.x, arrow.y, '#ff0000');
@@ -1482,7 +1490,8 @@ const StickmanArcherGame = () => {
 
                             return false;
                         }
-                    } */
+                    }
+
 
                     // Check collision with player
                     const hitPoint = checkCollision(arrow, state.player);
@@ -1524,8 +1533,8 @@ const StickmanArcherGame = () => {
             }
 
             if (!state.enemy.isDead) {
-                // Smooth movement toward target position - optimal balance
-                const moveSpeed = 0.05; // 3% per frame for smooth, natural movement
+                // Smooth movement toward target position
+                const moveSpeed = 0.05; // Back to smooth speed
                 const dx = state.enemy.targetX - state.enemy.x;
                 const dy = state.enemy.targetY - state.enemy.y;
 
@@ -1567,9 +1576,9 @@ const StickmanArcherGame = () => {
 
                 state.enemyShootTimer++;
                 // Much slower shooting speed for better gameplay balance
-                // Base delay is 240 frames (4 seconds), reduce slightly with level but cap the speed
-                const baseDelay = 240; // Increased from 180 for even slower shooting
-                const levelSpeedBonus = Math.min(level * 4, 30); // Reduced from 40 for more balanced progression
+                // Base delay is 360 frames (6 seconds) - SLOWER FIRE RATE
+                const baseDelay = 360; // Increased from 240 -> 360
+                const levelSpeedBonus = Math.min(level * 3, 30); // Reduced bonus
                 const shootDelay = baseDelay - levelSpeedBonus;
                 const chargeFrames = 20; // Frames to charge before shooting
 
@@ -1579,23 +1588,37 @@ const StickmanArcherGame = () => {
                     state.enemyChargeTime = state.enemyShootTimer - (shootDelay - chargeFrames);
 
                     // Calculate angle during charge (will be used when shooting)
-                    // Difficulty affects enemy accuracy
+                    // Difficulty affects enemy accuracy - BALANCED
                     let missRate;
                     if (difficulty === 'easy') {
-                        missRate = 0.60; // 60% miss = 40% hit
+                        missRate = 0.70; // 70% miss = 30% hit (easier)
                     } else if (difficulty === 'medium') {
-                        missRate = 0.50; // 50% miss = 50% hit
+                        missRate = 0.55; // 55% miss = 45% hit (balanced)
                     } else { // hard
-                        missRate = 0.10; // 10% miss = 90% hit
+                        missRate = 0.10; // 10% miss = 90% hit (as requested)
                     }
 
                     const makesMistake = Math.random() < missRate;
                     if (makesMistake) {
-                        state.enemyAngle = -(60 + Math.random() * 60); // Upward mistake (Negative Y)
+                        // Shoot too high (miss upward) - random upward angle
+                        // Clamp mistake angle to ensure it stays forward-facing (left)
+                        state.enemyAngle = -(120 + Math.random() * 60); // -120 to -180 degrees (Always Leftward)
                     } else {
-                        // Global Angle: -125 to -225 (Left-Up to Left-Down).
-                        // -135 is roughly 45 degrees Up-Left.
-                        state.enemyAngle = -(125 + (Math.random() + 0.5) * 100);
+                        // Always calculate angle toward player - no backward shots
+                        const dx = state.player.x - state.enemy.x;
+                        const dy = state.player.y - state.enemy.y;
+
+                        // Player is to the left (-dx) - shoot toward player
+                        const baseAngle = Math.atan2(dy, dx) * (180 / Math.PI);
+                        const arcAdjustment = -(15 + Math.random() * 10);
+                        let angle = baseAngle + arcAdjustment;
+
+                        // Strict clamping for Enemy (Forward is Left)
+                        // Restricted to not shoot backwards (Right side)
+                        if (Math.abs(angle) < 90) {
+                            angle = (angle < 0) ? -90 : 90;
+                        }
+                        state.enemyAngle = angle;
                     }
                 } else {
                     state.enemyIsCharging = false;
@@ -1609,13 +1632,13 @@ const StickmanArcherGame = () => {
                     let power;
 
                     // Determine power based on whether it was a mistake shot or normal shot
-                    if (angle <= -60 && angle >= -120) { // Upward shot range (Negative Y)
-                        power = 8 + Math.random() * 4; // Medium power
+                    if (angle <= -50 && angle >= -120) { // Upward mistake shot
+                        power = 8 + Math.random() * 3; // Lower power
                     } else {
-                        // Medium arrow power - slight increase with level but capped
-                        const basePower = 9;
-                        const levelPowerBonus = Math.min(level * 0.3, 3); // Max +3 power
-                        power = basePower + levelPowerBonus + (Math.random() * 2);
+                        // LOW SPEED / LONG RANGE (due to low gravity)
+                        const basePower = 10; // Reduced from 18 -> 10 for slower flight
+                        const levelPowerBonus = Math.min(level * 0.3, 6); // Reduced bonus
+                        power = basePower + levelPowerBonus + (Math.random() * 3);
                     }
 
                     state.enemyArrows.push({
@@ -1634,7 +1657,7 @@ const StickmanArcherGame = () => {
             // Enemy2 shooting logic (for levels 5-20 with 2 enemies)
             if (!state.enemy2.isDead && state.enemy2.x > 0) {
                 // Smooth movement toward target position
-                const moveSpeed = 0.05;
+                const moveSpeed = 0.05; // Back to smooth speed
                 const dx = state.enemy2.targetX - state.enemy2.x;
                 const dy = state.enemy2.targetY - state.enemy2.y;
 
@@ -1657,26 +1680,25 @@ const StickmanArcherGame = () => {
                 const newEnemy2Top = newEnemy2Y - enemy2H;
                 const newEnemy2Bottom = newEnemy2Y;
 
-                let enemy2WouldCollide = false;
+                let enemyWouldCollide = false;
                 for (let obs of state.obstacles) {
                     if (newEnemy2Right > obs.x &&
                         newEnemy2Left < obs.x + obs.w &&
                         newEnemy2Bottom > obs.y &&
                         newEnemy2Top < obs.y + obs.h) {
-                        enemy2WouldCollide = true;
+                        enemyWouldCollide = true;
                         break;
                     }
                 }
 
                 // Only apply movement if no collision
-                if (!enemy2WouldCollide) {
+                if (!enemyWouldCollide) {
                     state.enemy2.x = newEnemy2X;
                     state.enemy2.y = newEnemy2Y;
                 }
-
                 state.enemy2ShootTimer++;
-                const baseDelay = 240;
-                const levelSpeedBonus = Math.min(level * 4, 30);
+                const baseDelay = 360; // Increased from 240 -> 360
+                const levelSpeedBonus = Math.min(level * 3, 30);
                 const shootDelay = baseDelay - levelSpeedBonus;
                 const chargeFrames = 20;
 
@@ -1686,22 +1708,36 @@ const StickmanArcherGame = () => {
                     state.enemy2ChargeTime = state.enemy2ShootTimer - (shootDelay - chargeFrames);
 
                     // Calculate angle during charge
-                    // Difficulty affects enemy accuracy
+                    // Difficulty affects enemy accuracy - BALANCED
                     let missRate;
                     if (difficulty === 'easy') {
-                        missRate = 0.60; // 60% miss = 40% hit
+                        missRate = 0.70; // 70% miss = 30% hit (easier)
                     } else if (difficulty === 'medium') {
-                        missRate = 0.50; // 50% miss = 50% hit
+                        missRate = 0.55; // 55% miss = 45% hit (balanced)
                     } else { // hard
-                        missRate = 0.10; // 10% miss = 90% hit
+                        missRate = 0.10; // 10% miss = 90% hit (as requested)
                     }
 
                     const makesMistake = Math.random() < missRate;
                     if (makesMistake) {
-                        state.enemy2Angle = -(60 + Math.random() * 60); // Upward mistake
+                        // Shoot too high (miss upward) - random upward angle
+                        // Clamp mistake angle to ensure it stays forward-facing (left)
+                        state.enemy2Angle = -(120 + Math.random() * 60); // -120 to -180 degrees (Always Leftward)
                     } else {
-                        // Aim at player
-                        state.enemy2Angle = -(125 + (Math.random() + 0.5) * 100);
+                        // Always calculate angle toward player - no backward shots
+                        const dx = state.player.x - state.enemy2.x;
+                        const dy = state.player.y - state.enemy2.y;
+
+                        // Player is to the left (-dx) - shoot toward player
+                        const baseAngle = Math.atan2(dy, dx) * (180 / Math.PI);
+                        const arcAdjustment = -(15 + Math.random() * 10);
+                        let angle = baseAngle + arcAdjustment;
+
+                        // Strict clamping for Enemy 2 (Forward is Left)
+                        if (Math.abs(angle) < 90) {
+                            angle = (angle < 0) ? -90 : 90;
+                        }
+                        state.enemy2Angle = angle;
                     }
                 } else {
                     state.enemy2IsCharging = false;
@@ -1712,12 +1748,13 @@ const StickmanArcherGame = () => {
                     const angle = state.enemy2Angle;
                     let power;
 
-                    if (angle <= -60 && angle >= -120) {
-                        power = 8 + Math.random() * 4;
+                    if (angle <= -50 && angle >= -120) { // Upward mistake shot
+                        power = 8 + Math.random() * 3; // Lower power for mistakes
                     } else {
-                        const basePower = 9;
-                        const levelPowerBonus = Math.min(level * 0.3, 3);
-                        power = basePower + levelPowerBonus + (Math.random() * 2);
+                        // VERY LOW SPEED (floaty arrows due to low gravity)
+                        const basePower = 10; // Reduced from 18 -> 10
+                        const levelPowerBonus = Math.min(level * 0.3, 6); // Max +6
+                        power = basePower + levelPowerBonus + (Math.random() * 3);
                     }
 
                     state.enemy2Arrows.push({
@@ -1736,8 +1773,10 @@ const StickmanArcherGame = () => {
             drawParticles();
 
             if (!state.player.isDead) {
-                drawStickman(state.player.x, state.player.y, false, false, 0, state.player.health, state.isCharging, state.angle);
+                // Draw bow FIRST so arrow appears behind character
                 drawBow(state.player.x, state.player.y, state.angle, state.isCharging, state.chargeTime, false);
+                // Then draw character on top
+                drawStickman(state.player.x, state.player.y, false, false, 0, state.player.health, state.isCharging, state.angle);
 
                 if (powerUps.shield) {
                     ctx.strokeStyle = 'rgba(0, 150, 255, 0.6)';
@@ -1759,9 +1798,10 @@ const StickmanArcherGame = () => {
             }
 
             if (!state.enemy.isDead) {
-                drawStickman(state.enemy.x, state.enemy.y, false, true, 0, state.enemy.health);
-                // Draw enemy bow
+                // Draw bow FIRST so arrow appears behind character
                 drawBow(state.enemy.x, state.enemy.y, state.enemyAngle, state.enemyIsCharging, state.enemyChargeTime, true);
+                // Then draw character on top
+                drawStickman(state.enemy.x, state.enemy.y, false, true, 0, state.enemy.health);
             } else {
                 // Death animation for 1 second (60 frames at 60fps)
                 if (state.enemy.deathFrame < 60) {
@@ -1777,9 +1817,10 @@ const StickmanArcherGame = () => {
             // Draw enemy2 (for levels with 2 enemies: 5-20)
             if (state.enemy2.x > 0 && !state.enemy2.isDead) { // Only draw if not hidden and alive
                 if (!state.enemy2.isDead) {
-                    drawStickman(state.enemy2.x, state.enemy2.y, false, true, 0, state.enemy2.health);
-                    // Draw enemy2 bow
+                    // Draw bow FIRST so arrow appears behind character
                     drawBow(state.enemy2.x, state.enemy2.y, state.enemy2Angle, state.enemy2IsCharging, state.enemy2ChargeTime, true);
+                    // Then draw character on top
+                    drawStickman(state.enemy2.x, state.enemy2.y, false, true, 0, state.enemy2.health);
                 } else {
                     // Death animation for 1 second (60 frames at 60fps)
                     if (state.enemy2.deathFrame < 60) {
@@ -1908,7 +1949,12 @@ const StickmanArcherGame = () => {
             const state = gameState.current;
             const dx = mouseX - state.player.x;
             const dy = mouseY - (state.player.y - 30);
-            state.angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+            let angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+            // Restrict forward shooting only (-90 to 90 degrees)
+            if (angle > 90) angle = 90;
+            if (angle < -90) angle = -90;
+            state.angle = angle;
 
             state.isCharging = true;
             state.chargeTime = 0;
@@ -1931,8 +1977,13 @@ const StickmanArcherGame = () => {
 
                 const dx = mouseX - state.player.x;
                 const dy = mouseY - (state.player.y - 30);
-                state.angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-                state.chargeTime = Math.min(state.chargeTime + 1, 30);
+                let angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+                // Restrict forward shooting only (-90 to 90 degrees)
+                if (angle > 90) angle = 90;
+                if (angle < -90) angle = -90;
+                state.angle = angle;
+                // Removed chargeTime increment from here (moved to gameLoop)
             }
         };
 
@@ -2112,8 +2163,6 @@ const StickmanArcherGame = () => {
     //     }
     // };
 
-    const [startLevelKills, setStartLevelKills] = useState(0); // Track kills at start of level for replay
-    const [startLevelScore, setStartLevelScore] = useState(0); // Track score at start of level for replay
 
     // Initialize startLevelKills and startLevelScore on mount
     useEffect(() => {
@@ -2192,18 +2241,19 @@ const StickmanArcherGame = () => {
 
     return (
         <>
-            <div className={`w-full h-full flex flex-col items-center justify-center ${isMobile ? 'p-2' : isTablet ? 'p-4' : 'p-5'}`}
+            <div className={`w-full h-full flex flex-col items-center justify-center`}
                 style={{
-                    borderRadius: isMobile ? '12px' : '20px',
                     overflowX: 'hidden',
-                    boxSizing: 'border-box'
+                    boxSizing: 'border-box',
                 }}>
 
                 {/* Game Canvas Container */}
                 <div className="relative" style={{
                     width: `${canvasWidth}px`,
                     height: `${canvasHeight}px`,
-                    display: 'block'
+                    display: 'block',
+                    borderRadius: '20px',
+                    overflow: 'hidden'
                 }}>
                     <canvas
                         ref={canvasRef}
@@ -2213,9 +2263,9 @@ const StickmanArcherGame = () => {
                             width: '100%',
                             height: '100%',
                             objectFit: 'contain',
-                            display: 'block'
+                            display: 'block',
                         }}
-                        className="rounded-3xl cursor-crosshair bg-sky-200"
+                        className="cursor-crosshair bg-sky-200"
                     />
                     {/* Control Buttons - Responsive Design */}
                     {isMobile ? (
@@ -2313,73 +2363,110 @@ const StickmanArcherGame = () => {
                         </>
                     )}
 
-                    {/* HUD - Premium Glassmorphic Design */}
-                    <div className={`absolute ${isMobile ? 'top-2' : 'top-6'} left-0 right-0 flex justify-center z-20 pointer-events-none px-2`}>
-                        <div className={`bg-slate-900/80 backdrop-blur-xl border border-white/20 rounded-full shadow-[0_0_30px_rgba(0,0,0,0.4)] flex items-center text-white justify-between
-                            ${isMobile ? 'px-2 py-1.5 gap-1.5 flex-wrap max-w-full' : isTablet ? 'px-6 py-2 gap-4 max-w-[90%]' : 'px-8 py-3 gap-8 max-w-[700px]'}`}>
+                    {/* HUD - Mobile Optimized Design */}
+                    <div className={`absolute ${isMobile ? 'top-1.5' : 'top-6'} left-0 right-0 flex justify-center z-20 pointer-events-none ${isMobile ? 'px-1' : 'px-2'}`}>
+                        <div className={`bg-slate-900/70 backdrop-blur-xl border border-white/20 rounded-full shadow-[0_0_30px_rgba(0,0,0,0.4)] flex items-center text-white justify-between
+                            ${isMobile ? 'px-2 py-1 gap-1.5 max-w-[98%]' : isTablet ? 'px-6 py-2 gap-4 max-w-[90%]' : 'px-8 py-3 gap-8 max-w-[700px]'}`}>
 
                             {/* Level Section */}
-                            <div className="flex items-center gap-2">
+                            <div className={`flex items-center ${isMobile ? 'gap-1' : 'gap-2'}`}>
                                 <div className={`bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg shadow-purple-500/30
-                                    ${isMobile ? 'w-8 h-8' : isTablet ? 'w-10 h-10' : 'w-12 h-12'}`}>
-                                    <Star className={`text-white ${isMobile ? 'w-4 h-4' : isTablet ? 'w-5 h-5' : 'w-6 h-6'}`} strokeWidth={2.5} />
+                                    ${isMobile ? 'w-6 h-6' : isTablet ? 'w-10 h-10' : 'w-12 h-12'}`}>
+                                    <Star className={`text-white ${isMobile ? 'w-3 h-3' : isTablet ? 'w-5 h-5' : 'w-6 h-6'}`} strokeWidth={2.5} />
                                 </div>
-                                <div className="flex flex-col">
-                                    <span className={`font-bold text-purple-300 tracking-[0.2em] uppercase ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>Level</span>
-                                    <span className={`font-black text-white leading-none tracking-tight filter drop-shadow-md ${isMobile ? 'text-lg' : isTablet ? 'text-2xl' : 'text-3xl'}`}>
-                                        {level.toString().padStart(2, '0')}
-                                    </span>
-                                </div>
+                                {!isMobile && (
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-purple-300 tracking-[0.2em] uppercase text-[10px]">Level</span>
+                                        <span className={`font-black text-white leading-none tracking-tight filter drop-shadow-md ${isTablet ? 'text-2xl' : 'text-3xl'}`}>
+                                            {level.toString().padStart(2, '0')}
+                                        </span>
+                                    </div>
+                                )}
+                                {isMobile && (
+                                    <div className="flex flex-col items-center">
+                                        <span className="font-bold text-purple-300 uppercase text-[6px] leading-tight">LVL</span>
+                                        <span className="font-black text-white leading-none tracking-tight text-sm">
+                                            {level.toString().padStart(2, '0')}
+                                        </span>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Vertical Divider */}
                             {!isMobile && <div className={`w-px bg-gradient-to-b from-transparent via-white/20 to-transparent ${isTablet ? 'h-8' : 'h-10'}`}></div>}
 
                             {/* Timer Section */}
-                            <div className="flex items-center gap-2">
+                            <div className={`flex items-center ${isMobile ? 'gap-1' : 'gap-2'}`}>
                                 <div className={`bg-gradient-to-br from-blue-500 to-cyan-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/30
-                                    ${isMobile ? 'w-8 h-8' : isTablet ? 'w-10 h-10' : 'w-12 h-12'}`}>
-                                    <Zap className={`text-white animate-pulse ${isMobile ? 'w-4 h-4' : isTablet ? 'w-5 h-5' : 'w-6 h-6'}`} strokeWidth={2.5} />
+                                    ${isMobile ? 'w-6 h-6' : isTablet ? 'w-10 h-10' : 'w-12 h-12'}`}>
+                                    <Zap className={`text-white animate-pulse ${isMobile ? 'w-3 h-3' : isTablet ? 'w-5 h-5' : 'w-6 h-6'}`} strokeWidth={2.5} />
                                 </div>
-                                <div className="flex flex-col">
-                                    <span className={`font-bold text-blue-300 tracking-[0.2em] uppercase ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>Time</span>
-                                    <span className={`font-black text-cyan-400 leading-none tracking-tight filter drop-shadow-md font-mono ${isMobile ? 'text-lg' : isTablet ? 'text-2xl' : 'text-3xl'}`}>
-                                        {Math.floor(gameTime / 60).toString().padStart(2, '0')}:{(gameTime % 60).toString().padStart(2, '0')}
-                                    </span>
-                                </div>
+                                {!isMobile && (
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-blue-300 tracking-[0.2em] uppercase text-[10px]">Time</span>
+                                        <span className={`font-black text-cyan-400 leading-none tracking-tight filter drop-shadow-md font-mono ${isTablet ? 'text-2xl' : 'text-3xl'}`}>
+                                            {Math.floor(gameTime / 60).toString().padStart(2, '0')}:{(gameTime % 60).toString().padStart(2, '0')}
+                                        </span>
+                                    </div>
+                                )}
+                                {isMobile && (
+                                    <div className="flex flex-col items-center">
+                                        <span className="font-bold text-cyan-400 leading-none tracking-tight font-mono text-sm">
+                                            {Math.floor(gameTime / 60).toString().padStart(2, '0')}:{(gameTime % 60).toString().padStart(2, '0')}
+                                        </span>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Vertical Divider */}
                             {!isMobile && <div className={`w-px bg-gradient-to-b from-transparent via-white/20 to-transparent ${isTablet ? 'h-8' : 'h-10'}`}></div>}
 
                             {/* Kills Section */}
-                            <div className="flex items-center gap-2">
+                            <div className={`flex items-center ${isMobile ? 'gap-1' : 'gap-2'}`}>
                                 <div className={`bg-gradient-to-br from-red-500 to-rose-600 rounded-full flex items-center justify-center shadow-lg shadow-red-500/30
-                                    ${isMobile ? 'w-8 h-8' : isTablet ? 'w-10 h-10' : 'w-12 h-12'}`}>
-                                    <Skull className={`text-white animate-pulse ${isMobile ? 'w-5 h-5' : isTablet ? 'w-6 h-6' : 'w-7 h-7'}`} strokeWidth={2.5} />
+                                    ${isMobile ? 'w-6 h-6' : isTablet ? 'w-10 h-10' : 'w-12 h-12'}`}>
+                                    <Skull className={`text-white animate-pulse ${isMobile ? 'w-3.5 h-3.5' : isTablet ? 'w-6 h-6' : 'w-7 h-7'}`} strokeWidth={2.5} />
                                 </div>
-                                <div className="flex flex-col">
-                                    <span className={`font-bold text-red-300 tracking-[0.2em] uppercase ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>Kills</span>
-                                    <span className={`font-black text-white leading-none tracking-tight filter drop-shadow-md ${isMobile ? 'text-lg' : isTablet ? 'text-2xl' : 'text-3xl'}`}>
-                                        {totalKills.toString().padStart(2, '0')}
-                                    </span>
-                                </div>
+                                {!isMobile && (
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-red-300 tracking-[0.2em] uppercase text-[10px]">Kills</span>
+                                        <span className={`font-black text-white leading-none tracking-tight filter drop-shadow-md ${isTablet ? 'text-2xl' : 'text-3xl'}`}>
+                                            {totalKills.toString().padStart(2, '0')}
+                                        </span>
+                                    </div>
+                                )}
+                                {isMobile && (
+                                    <div className="flex flex-col items-center">
+                                        <span className="font-black text-white leading-none tracking-tight text-sm">
+                                            {totalKills.toString().padStart(2, '0')}
+                                        </span>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Vertical Divider */}
                             {!isMobile && <div className={`w-px bg-gradient-to-b from-transparent via-white/20 to-transparent ${isTablet ? 'h-8' : 'h-10'}`}></div>}
 
                             {/* Score Section */}
-                            <div className="flex items-center gap-2">
-                                <div className="flex flex-col items-end">
-                                    <span className={`font-bold text-yellow-300 tracking-[0.2em] uppercase ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>Score</span>
-                                    <span className={`font-black text-yellow-400 leading-none tracking-tight filter drop-shadow-md ${isMobile ? 'text-lg' : isTablet ? 'text-2xl' : 'text-3xl'}`}>
-                                        {score.toLocaleString()}
-                                    </span>
-                                </div>
+                            <div className={`flex items-center ${isMobile ? 'gap-1' : 'gap-2'}`}>
+                                {!isMobile && (
+                                    <div className="flex flex-col items-end">
+                                        <span className="font-bold text-yellow-300 tracking-[0.2em] uppercase text-[10px]">Score</span>
+                                        <span className={`font-black text-yellow-400 leading-none tracking-tight filter drop-shadow-md ${isTablet ? 'text-2xl' : 'text-3xl'}`}>
+                                            {score.toLocaleString()}
+                                        </span>
+                                    </div>
+                                )}
+                                {isMobile && (
+                                    <div className="flex flex-col items-center">
+                                        <span className="font-black text-yellow-400 leading-none tracking-tight text-sm">
+                                            {score}
+                                        </span>
+                                    </div>
+                                )}
                                 <div className={`bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg shadow-yellow-500/30
-                                    ${isMobile ? 'w-8 h-8' : isTablet ? 'w-10 h-10' : 'w-12 h-12'}`}>
-                                    <Trophy className={`text-white ${isMobile ? 'w-4 h-4' : isTablet ? 'w-5 h-5' : 'w-6 h-6'}`} strokeWidth={2.5} />
+                                    ${isMobile ? 'w-6 h-6' : isTablet ? 'w-10 h-10' : 'w-12 h-12'}`}>
+                                    <Trophy className={`text-white ${isMobile ? 'w-3 h-3' : isTablet ? 'w-5 h-5' : 'w-6 h-6'}`} strokeWidth={2.5} />
                                 </div>
                             </div>
 
@@ -2392,7 +2479,13 @@ const StickmanArcherGame = () => {
                             ${isMobile ? 'p-4 w-[85%] max-w-[320px]' : isTablet ? 'p-5 w-[70%] max-w-[400px]' : 'p-6 w-96 max-w-[500px]'}`} style={{ zIndex: 9999 }}>
                             <div className="flex justify-between items-center mb-6">
                                 <h3 className="text-xl font-black text-white italic tracking-wider uppercase">Settings</h3>
-                                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+                                <button
+                                    onClick={() => setShowSettings(false)}
+                                    className="p-2 rounded-full hover:bg-white/10 transition-colors group"
+                                    title="Close Settings"
+                                >
+                                    <X className="w-6 h-6 text-slate-400 group-hover:text-white transition-colors" />
+                                </button>
                             </div>
 
                             <div className="space-y-6">
@@ -2482,9 +2575,11 @@ const StickmanArcherGame = () => {
                                     border: isMobile ? '3px solid #10B981' : '4px solid #10B981',
                                     textAlign: 'center',
                                     boxShadow: '0 0 30px rgba(16, 185, 129, 0.5)',
-                                    width: isMobile ? '90%' : isTablet ? '80%' : 'auto',
-                                    minWidth: isMobile ? 'auto' : isTablet ? '400px' : '450px',
-                                    maxWidth: isMobile ? '95%' : isTablet ? '500px' : '600px'
+                                    width: isMobile ? '92%' : isTablet ? '80%' : 'auto',
+                                    maxWidth: isMobile ? '95%' : isTablet ? '450px' : '550px',
+                                    maxHeight: isMobile ? '90vh' : '85vh',
+                                    overflowY: 'auto',
+                                    overflowX: 'hidden'
                                 }}
                             >
                                 <h1 className={`font-black italic tracking-tighter mb-4 ${isMobile ? 'text-4xl' : isTablet ? 'text-5xl' : 'text-7xl'}`}
@@ -2507,27 +2602,30 @@ const StickmanArcherGame = () => {
                                     Level {level} Cleared
                                 </h3>
 
-                                <div className="flex gap-5 justify-center">
+                                <div className={`flex justify-center ${isMobile ? 'flex-col gap-2' : 'gap-5'}`}>
                                     <button
                                         onClick={handleReplayLevel}
                                         style={{
                                             backgroundColor: '#4B5563',
                                             color: 'white',
-                                            padding: '12px 24px',
+                                            padding: isMobile ? '10px 20px' : '12px 24px',
                                             borderRadius: '20px',
                                             fontWeight: 'bold',
+                                            fontSize: isMobile ? '0.875rem' : '1rem',
                                             border: '1px solid #9CA3AF',
                                             display: 'flex',
                                             alignItems: 'center',
+                                            justifyContent: 'center',
                                             gap: '8px',
                                             cursor: 'pointer',
-                                            margin: '0 10px',
-                                            transition: 'all 0.3s ease'
+                                            margin: isMobile ? '0' : '0 10px',
+                                            transition: 'all 0.3s ease',
+                                            width: isMobile ? '100%' : 'auto'
                                         }}
                                         onMouseOver={(e) => e.target.style.backgroundColor = '#374151'}
                                         onMouseOut={(e) => e.target.style.backgroundColor = '#4B5563'}
                                     >
-                                        <RotateCcw className="w-5 h-5" />
+                                        <RotateCcw className={isMobile ? 'w-4 h-4' : 'w-5 h-5'} />
                                         Replay
                                     </button>
 
@@ -2536,22 +2634,24 @@ const StickmanArcherGame = () => {
                                         style={{
                                             background: 'linear-gradient(to right, #EAB308, #EA580C)',
                                             color: 'white',
-                                            padding: '12px 32px',
+                                            padding: isMobile ? '10px 24px' : '12px 32px',
                                             borderRadius: '20px',
                                             fontWeight: '900',
-                                            fontSize: '1.125rem',
+                                            fontSize: isMobile ? '0.875rem' : '1.125rem',
                                             border: 'none',
                                             display: 'flex',
                                             alignItems: 'center',
+                                            justifyContent: 'center',
                                             gap: '8px',
                                             cursor: 'pointer',
                                             boxShadow: '0 4px 6px rgba(0,0,0,0.2)',
-                                            transition: 'all 0.3s ease'
+                                            transition: 'all 0.3s ease',
+                                            width: isMobile ? '100%' : 'auto'
                                         }}
                                         onMouseOver={(e) => e.target.style.transform = 'scale(1.05)'}
                                         onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
                                     >
-                                        Next Level <ArrowUp className="w-6 h-6 animate-bounce" />
+                                        Next Level <ArrowUp className={isMobile ? 'w-5 h-5 animate-bounce' : 'w-6 h-6 animate-bounce'} />
                                     </button>
                                 </div>
                             </div>
@@ -2583,25 +2683,27 @@ const StickmanArcherGame = () => {
                                     transform: 'translate(-50%, -50%)',
                                     zIndex: 70,
                                     background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.95) 0%, rgba(59, 130, 246, 0.95) 100%)',
-                                    padding: isMobile ? '30px' : isTablet ? '40px' : '50px',
-                                    borderRadius: '30px',
-                                    border: isMobile ? '4px solid #FFD700' : '5px solid #FFD700',
+                                    padding: isMobile ? '20px' : isTablet ? '30px' : '50px',
+                                    borderRadius: isMobile ? '20px' : '30px',
+                                    border: isMobile ? '3px solid #FFD700' : '5px solid #FFD700',
                                     textAlign: 'center',
                                     boxShadow: '0 0 60px rgba(255, 215, 0, 0.8), inset 0 0 30px rgba(255, 255, 255, 0.2)',
-                                    width: isMobile ? '90%' : isTablet ? '85%' : 'auto',
-                                    minWidth: isMobile ? 'auto' : isTablet ? '450px' : '500px',
-                                    maxWidth: isMobile ? '95%' : isTablet ? '550px' : '650px'
+                                    width: isMobile ? '92%' : isTablet ? '80%' : 'auto',
+                                    maxWidth: isMobile ? '95%' : isTablet ? '500px' : '600px',
+                                    maxHeight: isMobile ? '90vh' : '85vh',
+                                    overflowY: 'auto',
+                                    overflowX: 'hidden'
                                 }}
                             >
                                 {/* Trophy Icon */}
-                                <div className="flex justify-center mb-6">
-                                    <div className="bg-gradient-to-br from-yellow-300 to-yellow-600 w-24 h-24 rounded-full flex items-center justify-center shadow-2xl shadow-yellow-500/50 animate-bounce">
-                                        <Trophy className="w-16 h-16 text-white" strokeWidth={3} />
+                                <div className={`flex justify-center ${isMobile ? 'mb-3' : 'mb-6'}`}>
+                                    <div className={`bg-gradient-to-br from-yellow-300 to-yellow-600 rounded-full flex items-center justify-center shadow-2xl shadow-yellow-500/50 animate-bounce ${isMobile ? 'w-16 h-16' : 'w-24 h-24'}`}>
+                                        <Trophy className={`text-white ${isMobile ? 'w-10 h-10' : 'w-16 h-16'}`} strokeWidth={3} />
                                     </div>
                                 </div>
 
                                 {/* Victory Text */}
-                                <h1 className="text-8xl font-black italic tracking-tighter mb-4 animate-pulse"
+                                <h1 className={`font-black italic tracking-tighter animate-pulse ${isMobile ? 'text-4xl mb-2' : isTablet ? 'text-6xl mb-3' : 'text-8xl mb-4'}`}
                                     style={{
                                         color: 'transparent',
                                         backgroundImage: 'linear-gradient(to right, #FFD700, #FFA500, #FFD700)',
@@ -2613,57 +2715,58 @@ const StickmanArcherGame = () => {
                                     VICTORY!
                                 </h1>
 
-                                <h2 className="text-3xl font-bold text-white mb-8 drop-shadow-lg">
+                                <h2 className={`font-bold text-white drop-shadow-lg ${isMobile ? 'text-sm mb-4' : isTablet ? 'text-xl mb-6' : 'text-3xl mb-8'}`}>
                                     🎉 You Survived {WIN_TIME_SECONDS} Seconds! 🎉
                                 </h2>
 
                                 {/* Stats Display */}
-                                <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 mb-8 border border-white/20">
-                                    <h3 className="text-xl font-bold text-yellow-300 mb-4 uppercase tracking-wider">Final Stats</h3>
-                                    <div className="grid grid-cols-2 gap-4 text-white">
-                                        <div className="bg-white/10 rounded-xl p-4">
-                                            <div className="text-sm text-gray-300 mb-1">Time Survived</div>
-                                            <div className="text-3xl font-black text-cyan-400 font-mono">
+                                <div className={`bg-black/30 backdrop-blur-sm rounded-2xl border border-white/20 ${isMobile ? 'p-3 mb-4' : 'p-6 mb-8'}`}>
+                                    <h3 className={`font-bold text-yellow-300 uppercase tracking-wider ${isMobile ? 'text-sm mb-2' : 'text-xl mb-4'}`}>Final Stats</h3>
+                                    <div className={`grid grid-cols-2 text-white ${isMobile ? 'gap-2' : 'gap-4'}`}>
+                                        <div className={`bg-white/10 rounded-xl ${isMobile ? 'p-2' : 'p-4'}`}>
+                                            <div className={`text-gray-300 ${isMobile ? 'text-[10px] mb-0.5' : 'text-sm mb-1'}`}>Time Survived</div>
+                                            <div className={`font-black text-cyan-400 font-mono ${isMobile ? 'text-lg' : isTablet ? 'text-2xl' : 'text-3xl'}`}>
                                                 {Math.floor(gameTime / 60)}:{(gameTime % 60).toString().padStart(2, '0')}
                                             </div>
                                         </div>
-                                        <div className="bg-white/10 rounded-xl p-4">
-                                            <div className="text-sm text-gray-300 mb-1">Level Reached</div>
-                                            <div className="text-3xl font-black text-purple-400">{level}</div>
+                                        <div className={`bg-white/10 rounded-xl ${isMobile ? 'p-2' : 'p-4'}`}>
+                                            <div className={`text-gray-300 ${isMobile ? 'text-[10px] mb-0.5' : 'text-sm mb-1'}`}>Level Reached</div>
+                                            <div className={`font-black text-purple-400 ${isMobile ? 'text-lg' : isTablet ? 'text-2xl' : 'text-3xl'}`}>{level}</div>
                                         </div>
-                                        <div className="bg-white/10 rounded-xl p-4">
-                                            <div className="text-sm text-gray-300 mb-1">Total Kills</div>
-                                            <div className="text-3xl font-black text-red-400">{totalKills}</div>
+                                        <div className={`bg-white/10 rounded-xl ${isMobile ? 'p-2' : 'p-4'}`}>
+                                            <div className={`text-gray-300 ${isMobile ? 'text-[10px] mb-0.5' : 'text-sm mb-1'}`}>Total Kills</div>
+                                            <div className={`font-black text-red-400 ${isMobile ? 'text-lg' : isTablet ? 'text-2xl' : 'text-3xl'}`}>{totalKills}</div>
                                         </div>
-                                        <div className="bg-white/10 rounded-xl p-4">
-                                            <div className="text-sm text-gray-300 mb-1">Final Score</div>
-                                            <div className="text-3xl font-black text-yellow-400">{score}</div>
+                                        <div className={`bg-white/10 rounded-xl ${isMobile ? 'p-2' : 'p-4'}`}>
+                                            <div className={`text-gray-300 ${isMobile ? 'text-[10px] mb-0.5' : 'text-sm mb-1'}`}>Final Score</div>
+                                            <div className={`font-black text-yellow-400 ${isMobile ? 'text-lg' : isTablet ? 'text-2xl' : 'text-3xl'}`}>{score}</div>
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Action Buttons */}
-                                <div className="flex gap-4 justify-center">
+                                <div className={`flex justify-center ${isMobile ? 'flex-col gap-2' : 'gap-4'}`}>
                                     <button
                                         onClick={() => {
                                             setGameWon(false);
                                             setIsPaused(false);
-                                            // Don't reset timer - continue from current time
                                         }}
                                         style={{
                                             background: 'linear-gradient(to right, #10B981, #059669)',
                                             color: 'white',
-                                            padding: '16px 32px',
+                                            padding: isMobile ? '12px 24px' : '16px 32px',
                                             borderRadius: '9999px',
                                             fontWeight: 'bold',
-                                            fontSize: '1.125rem',
+                                            fontSize: isMobile ? '0.875rem' : '1.125rem',
                                             border: 'none',
                                             display: 'flex',
                                             alignItems: 'center',
-                                            gap: '10px',
+                                            justifyContent: 'center',
+                                            gap: '8px',
                                             cursor: 'pointer',
                                             boxShadow: '0 6px 12px rgba(0,0,0,0.3)',
-                                            transition: 'all 0.3s ease'
+                                            transition: 'all 0.3s ease',
+                                            width: isMobile ? '100%' : 'auto'
                                         }}
                                         onMouseOver={(e) => {
                                             e.target.style.transform = 'scale(1.05)';
@@ -2674,7 +2777,7 @@ const StickmanArcherGame = () => {
                                             e.target.style.boxShadow = '0 6px 12px rgba(0,0,0,0.3)';
                                         }}
                                     >
-                                        <Play className="w-6 h-6" />
+                                        <Play className={isMobile ? 'w-4 h-4' : 'w-6 h-6'} />
                                         Continue Playing
                                     </button>
 
@@ -2683,17 +2786,19 @@ const StickmanArcherGame = () => {
                                         style={{
                                             background: 'linear-gradient(to right, #EF4444, #DC2626)',
                                             color: 'white',
-                                            padding: '16px 32px',
+                                            padding: isMobile ? '12px 24px' : '16px 32px',
                                             borderRadius: '9999px',
                                             fontWeight: 'bold',
-                                            fontSize: '1.125rem',
+                                            fontSize: isMobile ? '0.875rem' : '1.125rem',
                                             border: 'none',
                                             display: 'flex',
                                             alignItems: 'center',
-                                            gap: '10px',
+                                            justifyContent: 'center',
+                                            gap: '8px',
                                             cursor: 'pointer',
                                             boxShadow: '0 6px 12px rgba(0,0,0,0.3)',
-                                            transition: 'all 0.3s ease'
+                                            transition: 'all 0.3s ease',
+                                            width: isMobile ? '100%' : 'auto'
                                         }}
                                         onMouseOver={(e) => {
                                             e.target.style.transform = 'scale(1.05)';
@@ -2704,7 +2809,7 @@ const StickmanArcherGame = () => {
                                             e.target.style.boxShadow = '0 6px 12px rgba(0,0,0,0.3)';
                                         }}
                                     >
-                                        <RotateCcw className="w-6 h-6" />
+                                        <RotateCcw className={isMobile ? 'w-4 h-4' : 'w-6 h-6'} />
                                         New Game
                                     </button>
                                 </div>
