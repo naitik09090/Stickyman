@@ -43,7 +43,7 @@ const StickmanArcherGame = () => {
 
     // Base canvas dimensions (internal game coordinates)
     const BASE_WIDTH = 1250;
-    const BASE_HEIGHT = 600;
+    const BASE_HEIGHT = 670;
 
     const gameState = useRef({
         player: { x: 350, y: 400, health: 3, arrowHits: [], isDead: false, deathFrame: 0, isInvulnerable: false },
@@ -88,7 +88,7 @@ const StickmanArcherGame = () => {
             { x: 800, y: 350 }, { x: 850, y: 370 }, { x: 780, y: 360 },
             // Level 16-20: Very high positions
             { x: 820, y: 300 }, { x: 800, y: 320 }, { x: 860, y: 310 },
-            // Level 21+: Extreme positions (very challenging)
+            // Level 21+: Extreme positions (very challenging) 
             { x: 800, y: 500 }, { x: 850, y: 520 }, { x: 780, y: 510 }
         ],
         currentPlayerPosIndex: 0,
