@@ -98,6 +98,8 @@ const StickmanArcherGame = () => {
         obstacles: []
     });
 
+    const lastTouchTime = useRef(0); // Track last touch event to prevent ghost mouse clicks
+
     // Responsive Canvas Sizing
     useEffect(() => {
         const updateCanvasSize = () => {
@@ -1935,8 +1937,18 @@ const StickmanArcherGame = () => {
 
         const handleMouseDown = (e) => {
             if (gameOver || isPaused) return;
-            // Prevent default to avoid selection issues
-            // e.preventDefault(); 
+            // Prevent default to avoid selection issues and double-firing on touch
+            if (e.cancelable && e.type !== 'touchstart') e.preventDefault();
+
+            // Ghost click prevention
+            const now = Date.now();
+            if (e.touches) {
+                lastTouchTime.current = now;
+            } else if (now - lastTouchTime.current < 500) {
+                // Ignore mouse events that happen shortly after touch
+                return;
+            }
+
             const rect = canvas.getBoundingClientRect();
             // Handle both touch and mouse
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -1962,11 +1974,20 @@ const StickmanArcherGame = () => {
 
         const handleMouseMove = (e) => {
             if (gameOver || isPaused) return;
+
+            // Ghost click prevention
+            const now = Date.now();
+            if (e.touches) {
+                lastTouchTime.current = now;
+            } else if (now - lastTouchTime.current < 500) {
+                return;
+            }
+
             const state = gameState.current;
 
             // Only tracking if we are charging (for drag effect)
             if (state.isCharging) {
-                e.preventDefault(); // Prevent scrolling on touch
+                if (e.cancelable) e.preventDefault(); // Prevent scrolling on touch
                 const rect = canvas.getBoundingClientRect();
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -1989,7 +2010,16 @@ const StickmanArcherGame = () => {
 
         const handleMouseUp = (e) => {
             if (gameOver || isPaused) return;
-            // e.preventDefault();
+            if (e.cancelable && e.type !== 'touchend') e.preventDefault();
+
+            // Ghost click prevention
+            const now = Date.now();
+            if (e.changedTouches) { // touchend has changedTouches
+                lastTouchTime.current = now;
+            } else if (now - lastTouchTime.current < 500) {
+                return;
+            }
+
             const state = gameState.current;
             if (state.isCharging && state.ammo > 0) {
                 const power = 9 + (state.chargeTime / 30) * 10; // Increased power for longer distance
@@ -2476,7 +2506,12 @@ const StickmanArcherGame = () => {
                     {/* Settings Panel - Centered */}
                     {showSettings && (
                         <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10 z-50 animate-in fade-in zoom-in duration-200
-                            ${isMobile ? 'p-4 w-[85%] max-w-[320px]' : isTablet ? 'p-5 w-[70%] max-w-[400px]' : 'p-6 w-96 max-w-[500px]'}`} style={{ zIndex: 9999 }}>
+                            ${isMobile ? 'w-[60%] h-[100%]' : isTablet ? 'p-5 w-[60%] h-[100%]' : 'p-6 w-96 max-w-[500px]'}`}
+                            style={{
+                                zIndex: 9999,
+                                maxHeight: '90vh',
+                                overflowY: 'auto'
+                            }}>
                             <div className="flex justify-between items-center mb-6">
                                 <h3 className="text-xl font-black text-white italic tracking-wider uppercase">Settings</h3>
                                 <button
@@ -2570,14 +2605,15 @@ const StickmanArcherGame = () => {
                                     transform: 'translate(-50%, -50%)',
                                     zIndex: 50,
                                     backgroundColor: 'rgba(0, 0, 0, 0.95)',
-                                    padding: isMobile ? '20px' : isTablet ? '30px' : '40px',
+                                    padding: isMobile ? '0px' : isTablet ? '30px' : '40px',
                                     borderRadius: '20px',
                                     border: isMobile ? '3px solid #10B981' : '4px solid #10B981',
                                     textAlign: 'center',
                                     boxShadow: '0 0 30px rgba(16, 185, 129, 0.5)',
-                                    width: isMobile ? '92%' : isTablet ? '80%' : 'auto',
-                                    maxWidth: isMobile ? '95%' : isTablet ? '450px' : '550px',
-                                    maxHeight: isMobile ? '90vh' : '85vh',
+                                    width: isMobile ? '90%' : isTablet ? '70%' : 'auto',
+                                    minWidth: isMobile ? 'auto' : '300px',
+                                    maxWidth: '100%',
+                                    maxHeight: '100%',
                                     overflowY: 'auto',
                                     overflowX: 'hidden'
                                 }}
@@ -2604,6 +2640,30 @@ const StickmanArcherGame = () => {
 
                                 <div className={`flex justify-center ${isMobile ? 'flex-col gap-2' : 'gap-5'}`}>
                                     <button
+                                        onClick={handleNextLevel}
+                                        style={{
+                                            background: 'linear-gradient(to right, #EAB308, #EA580C)',
+                                            color: 'white',
+                                            padding: isMobile ? '10px 24px' : '12px 32px',
+                                            borderRadius: '20px',
+                                            fontWeight: '900',
+                                            fontSize: isMobile ? '0.875rem' : '1.125rem',
+                                            border: 'none',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '8px',
+                                            cursor: 'pointer',
+                                            boxShadow: '0 4px 6px rgba(0,0,0,0.2)',
+                                            transition: 'all 0.3s ease',
+                                            width: isMobile ? '100%' : 'auto'
+                                        }}
+                                        onMouseOver={(e) => e.target.style.transform = 'scale(1.05)'}
+                                        onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
+                                    >
+                                        Next Level <ArrowUp className={isMobile ? 'w-5 h-5 animate-bounce' : 'w-6 h-6 animate-bounce'} />
+                                    </button>
+                                    <button
                                         onClick={handleReplayLevel}
                                         style={{
                                             backgroundColor: '#4B5563',
@@ -2627,31 +2687,6 @@ const StickmanArcherGame = () => {
                                     >
                                         <RotateCcw className={isMobile ? 'w-4 h-4' : 'w-5 h-5'} />
                                         Replay
-                                    </button>
-
-                                    <button
-                                        onClick={handleNextLevel}
-                                        style={{
-                                            background: 'linear-gradient(to right, #EAB308, #EA580C)',
-                                            color: 'white',
-                                            padding: isMobile ? '10px 24px' : '12px 32px',
-                                            borderRadius: '20px',
-                                            fontWeight: '900',
-                                            fontSize: isMobile ? '0.875rem' : '1.125rem',
-                                            border: 'none',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '8px',
-                                            cursor: 'pointer',
-                                            boxShadow: '0 4px 6px rgba(0,0,0,0.2)',
-                                            transition: 'all 0.3s ease',
-                                            width: isMobile ? '100%' : 'auto'
-                                        }}
-                                        onMouseOver={(e) => e.target.style.transform = 'scale(1.05)'}
-                                        onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
-                                    >
-                                        Next Level <ArrowUp className={isMobile ? 'w-5 h-5 animate-bounce' : 'w-6 h-6 animate-bounce'} />
                                     </button>
                                 </div>
                             </div>
@@ -2688,9 +2723,10 @@ const StickmanArcherGame = () => {
                                     border: isMobile ? '3px solid #FFD700' : '5px solid #FFD700',
                                     textAlign: 'center',
                                     boxShadow: '0 0 60px rgba(255, 215, 0, 0.8), inset 0 0 30px rgba(255, 255, 255, 0.2)',
-                                    width: isMobile ? '92%' : isTablet ? '80%' : 'auto',
-                                    maxWidth: isMobile ? '95%' : isTablet ? '500px' : '600px',
-                                    maxHeight: isMobile ? '90vh' : '85vh',
+                                    width: isMobile ? '90%' : isTablet ? '80%' : 'auto',
+                                    minWidth: isMobile ? 'auto' : '320px',
+                                    maxWidth: '95vw',
+                                    maxHeight: '90vh',
                                     overflowY: 'auto',
                                     overflowX: 'hidden'
                                 }}
@@ -2828,27 +2864,30 @@ const StickmanArcherGame = () => {
                                     transform: 'translate(-50%, -50%)',
                                     zIndex: 50,
                                     backgroundColor: 'rgba(20, 20, 40, 0.98)',
-                                    padding: isMobile ? '20px' : isTablet ? '30px' : '40px',
+                                    padding: isMobile ? '15px' : isTablet ? '30px' : '40px',
                                     borderRadius: '24px',
                                     border: isMobile ? '2px solid rgba(239, 68, 68, 0.6)' : '3px solid rgba(239, 68, 68, 0.6)',
                                     textAlign: 'center',
                                     boxShadow: '0 0 50px rgba(239, 68, 68, 0.4), inset 0 0 30px rgba(0,0,0,0.3)',
-                                    width: isMobile ? '90%' : isTablet ? '80%' : 'auto',
+                                    width: isMobile ? '60%' : isTablet ? '80%' : 'auto',
+                                    height: isMobile ? '100%' : isTablet ? '80%' : 'auto',
                                     minWidth: isMobile ? 'auto' : isTablet ? '400px' : '450px',
-                                    maxWidth: isMobile ? '95%' : isTablet ? '500px' : '600px'
+                                    maxWidth: '95vw',
+                                    maxHeight: '90vh',
+                                    overflowY: 'auto'
                                 }}
                             >
-                                <div className="mb-6">
-                                    <Skull className="w-20 h-20 text-red-500 mx-auto animate-pulse" strokeWidth={2} />
+                                <div className={`mb-2 ${isMobile ? 'mb-1' : 'mb-6'}`}>
+                                    <Skull className={`text-red-500 mx-auto animate-pulse ${isMobile ? 'w-10 h-10' : 'w-20 h-20'}`} strokeWidth={2} />
                                 </div>
-                                <h2 className="text-6xl font-black text-red-500 mb-2 italic tracking-tight drop-shadow-lg">{gameOverReason || 'GAME OVER'}</h2>
-                                <h3 className="text-4xl font-bold text-white mb-6">Game Over</h3>
+                                <h2 className={`${isMobile ? 'text-3xl' : 'text-6xl'} font-black text-red-500 mb-1 italic tracking-tight drop-shadow-lg`}>{gameOverReason || 'GAME OVER'}</h2>
+                                <h3 className={`${isMobile ? 'text-xl' : 'text-4xl'} font-bold text-white mb-3`}>Game Over</h3>
 
-                                <div className="bg-black/30 rounded-xl p-4 mb-6">
-                                    <p className="text-2xl text-yellow-400 mb-2 font-bold">Score: {score}</p>
-                                    <p className="text-lg text-gray-300">Best: {highScore}</p>
-                                    <p className="text-lg text-red-400">Anime Kills: {totalKills}</p>
-                                    <p className="text-lg text-purple-400">Level: {level}</p>
+                                <div className={`bg-black/30 rounded-xl ${isMobile ? 'p-2 mb-3' : 'p-4 mb-6'}`}>
+                                    <p className={`${isMobile ? 'text-lg' : 'text-2xl'} text-yellow-400 mb-1 font-bold`}>Score: {score}</p>
+                                    <p className={`${isMobile ? 'text-sm' : 'text-lg'} text-gray-300`}>Best: {highScore}</p>
+                                    <p className={`${isMobile ? 'text-sm' : 'text-lg'} text-red-400`}>Anime Kills: {totalKills}</p>
+                                    <p className={`${isMobile ? 'text-sm' : 'text-lg'} text-purple-400`}>Level: {level}</p>
                                 </div>
 
                                 <div className="flex justify-center">
@@ -2880,20 +2919,23 @@ const StickmanArcherGame = () => {
                                     border: isMobile ? '3px solid rgba(255, 200, 87, 0.8)' : '4px solid rgba(255, 200, 87, 0.8)',
                                     textAlign: 'center',
                                     boxShadow: '0 0 50px rgba(255, 107, 107, 0.6), inset 0 0 30px rgba(0,0,0,0.3)',
-                                    width: isMobile ? '90%' : isTablet ? '80%' : 'auto',
+                                    width: isMobile ? '60%' : isTablet ? '80%' : 'auto',
+                                    height: isMobile ? '100%' : isTablet ? '100%' : 'auto',
                                     minWidth: isMobile ? 'auto' : isTablet ? '400px' : '450px',
-                                    maxWidth: isMobile ? '95%' : isTablet ? '500px' : '600px'
+                                    maxWidth: '95vw',
+                                    maxHeight: '90vh',
+                                    overflowY: 'auto'
                                 }}
                             >
-                                <div className="mb-6">
-                                    <Skull className="w-20 h-20 text-white mx-auto animate-bounce" strokeWidth={2} />
+                                <div className={`mb-2 ${isMobile ? 'mb-1' : 'mb-6'}`}>
+                                    <Skull className={`text-white mx-auto animate-bounce ${isMobile ? 'w-10 h-10' : 'w-20 h-20'}`} strokeWidth={2} />
                                 </div>
-                                <h2 className="text-6xl font-black text-white mb-2 italic tracking-tight drop-shadow-lg">SELF-KILL!</h2>
-                                <h3 className="text-3xl font-bold text-yellow-100 mb-6">You killed yourself!</h3>
+                                <h2 className={`${isMobile ? 'text-3xl' : 'text-6xl'} font-black text-white mb-1 italic tracking-tight drop-shadow-lg`}>SELF-KILL!</h2>
+                                <h3 className={`${isMobile ? 'text-lg' : 'text-3xl'} font-bold text-yellow-100 mb-3`}>You killed yourself!</h3>
 
-                                <div className="bg-black/30 rounded-xl p-4 mb-6">
-                                    <p className="text-xl text-white mb-2">💀 Friendly Fire Activated</p>
-                                    <p className="text-lg text-yellow-200">Be careful with your arrows!</p>
+                                <div className={`bg-black/30 rounded-xl ${isMobile ? 'p-2 mb-3' : 'p-4 mb-6'}`}>
+                                    <p className={`${isMobile ? 'text-lg' : 'text-xl'} text-white mb-1`}>💀 Friendly Fire Activated</p>
+                                    <p className={`${isMobile ? 'text-sm' : 'text-lg'} text-yellow-200`}>Be careful with your arrows!</p>
                                 </div>
 
                                 <div className="flex justify-center">
@@ -2928,20 +2970,23 @@ const StickmanArcherGame = () => {
                                     border: isMobile ? '3px solid rgba(255, 200, 87, 0.8)' : '4px solid rgba(255, 200, 87, 0.8)',
                                     textAlign: 'center',
                                     boxShadow: '0 0 50px rgba(34, 197, 94, 0.6), inset 0 0 30px rgba(0,0,0,0.3)',
-                                    width: isMobile ? '90%' : isTablet ? '80%' : 'auto',
+                                    width: isMobile ? '60%' : isTablet ? '80%' : 'auto',
+                                    height: isMobile ? '100%' : isTablet ? '100%' : 'auto',
                                     minWidth: isMobile ? 'auto' : isTablet ? '400px' : '450px',
-                                    maxWidth: isMobile ? '95%' : isTablet ? '500px' : '600px'
+                                    maxWidth: '95vw',
+                                    maxHeight: '90vh',
+                                    overflowY: 'auto'
                                 }}
                             >
-                                <div className="mb-6">
-                                    <Skull className="w-20 h-20 text-white mx-auto animate-bounce" strokeWidth={2} />
+                                <div className={`mb-2 ${isMobile ? 'mb-1' : 'mb-6'}`}>
+                                    <Skull className={`text-white mx-auto animate-bounce ${isMobile ? 'w-10 h-10' : 'w-20 h-20'}`} strokeWidth={2} />
                                 </div>
-                                <h2 className="text-6xl font-black text-white mb-2 italic tracking-tight drop-shadow-lg">ENEMY SELF-KILL!</h2>
-                                <h3 className="text-3xl font-bold text-yellow-100 mb-6">Enemy killed themselves!</h3>
+                                <h2 className={`${isMobile ? 'text-3xl' : 'text-6xl'} font-black text-white mb-1 italic tracking-tight drop-shadow-lg`}>ENEMY SELF-KILL!</h2>
+                                <h3 className={`${isMobile ? 'text-lg' : 'text-3xl'} font-bold text-yellow-100 mb-3`}>Enemy killed themselves!</h3>
 
-                                <div className="bg-black/30 rounded-xl p-4 mb-6">
-                                    <p className="text-xl text-white mb-2">💀 Enemy Friendly Fire</p>
-                                    <p className="text-lg text-yellow-200">Enemy made a mistake!</p>
+                                <div className={`bg-black/30 rounded-xl ${isMobile ? 'p-2 mb-3' : 'p-4 mb-6'}`}>
+                                    <p className={`${isMobile ? 'text-lg' : 'text-xl'} text-white mb-1`}>💀 Enemy Friendly Fire</p>
+                                    <p className={`${isMobile ? 'text-sm' : 'text-lg'} text-yellow-200`}>Enemy made a mistake!</p>
                                 </div>
 
                                 <div className="flex justify-center">
@@ -3000,9 +3045,11 @@ const StickmanArcherGame = () => {
                                     border: isMobile ? '3px solid #60A5FA' : '4px solid #60A5FA',
                                     textAlign: 'center',
                                     boxShadow: '0 0 30px rgba(96, 165, 250, 0.5)',
-                                    width: isMobile ? '85%' : isTablet ? '70%' : 'auto',
+                                    width: isMobile ? '60%' : isTablet ? '60%' : 'auto',
                                     minWidth: isMobile ? 'auto' : isTablet ? '350px' : '400px',
-                                    maxWidth: isMobile ? '90%' : isTablet ? '450px' : '500px'
+                                    maxWidth: '95vw',
+                                    maxHeight: '90vh',
+                                    overflowY: 'auto'
                                 }}
                             >
                                 <h2 className={`font-bold mb-6 ${isMobile ? 'text-3xl' : isTablet ? 'text-4xl' : 'text-5xl'}`}>Paused</h2>
