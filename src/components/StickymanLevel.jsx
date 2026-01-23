@@ -43,7 +43,7 @@ const StickmanArcherGame = () => {
 
     // Base canvas dimensions (internal game coordinates)
     const BASE_WIDTH = 1250;
-    const BASE_HEIGHT = 670;
+    const BASE_HEIGHT = 702;
 
     const gameState = useRef({
         player: { x: 350, y: 400, health: 3, arrowHits: [], isDead: false, deathFrame: 0, isInvulnerable: false },
